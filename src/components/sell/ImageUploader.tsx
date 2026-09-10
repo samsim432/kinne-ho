@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
-import { Camera, Trash2, Star, Plus, Image as ImageIcon } from 'lucide-react';
+import { Plus, X, Star, Image as ImageIcon } from 'lucide-react';
+import { useMarketplace } from '../../context/MarketplaceContext';
 
 interface ImageUploaderProps {
   images: string[];
@@ -8,108 +9,127 @@ interface ImageUploaderProps {
 
 export const ImageUploader: React.FC<ImageUploaderProps> = ({ images, setImages }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { showToast } = useMarketplace();
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      const newImageUrls = filesArray.map((file) => URL.createObjectURL(file));
-      setImages((prev) => [...prev, ...newImageUrls]);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (images.length + files.length > 8) {
+      showToast('Photo limit reached', 'You can upload a maximum of 8 photos.', 'warning');
+      return;
+    }
+
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) {
+        showToast('Invalid file format', 'Please upload JPG, PNG, or WEBP images only.', 'error');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        const result = uploadEvent.target?.result as string;
+        if (result) {
+          setImages((prev) => [...prev, result]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
-  const handleDelete = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+  const removeImage = (indexToRemove: number) => {
+    setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  const handleSetCover = (index: number) => {
-    if (index === 0) return;
+  const setAsCover = (indexToCover: number) => {
+    if (indexToCover === 0) return;
     setImages((prev) => {
-      const target = prev[index];
-      const filtered = prev.filter((_, i) => i !== index);
-      return [target, ...filtered];
+      const selected = prev[indexToCover];
+      const rest = prev.filter((_, idx) => idx !== indexToCover);
+      return [selected, ...rest];
     });
   };
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <label className="text-xs font-bold text-gray-800 block">
-            Item Photos ({images.length}/8)
-          </label>
-          <span className="text-[11px] text-gray-500">
-            First photo is the cover. Click "Cover" on any photo to make it primary.
-          </span>
-        </div>
-        <span className="text-[10px] font-bold text-[#1b7a53] bg-[#1b7a53]/10 px-2 py-0.5 rounded-full">
+      <div className="flex items-center justify-between text-xs">
+        <label className="font-bold text-gray-700">
+          Item Photos ({images.length}/8)
+        </label>
+        <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
           JPG, PNG, WEBP
         </span>
       </div>
 
+      <p className="text-[11px] text-gray-500">
+        First photo is the cover. Click "Cover" on any photo to make it primary.
+      </p>
+
+      {/* Hidden Native File Input */}
       <input
         type="file"
         ref={fileInputRef}
-        onChange={handleFileUpload}
+        onChange={handleFileChange}
         multiple
-        accept="image/*"
+        accept="image/png, image/jpeg, image/webp"
         className="hidden"
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {/* Upload Trigger Button */}
-        <div
-          onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-gray-200 hover:border-[#1b7a53] rounded-2xl aspect-square flex flex-col items-center justify-center text-gray-400 hover:text-[#1b7a53] transition-all cursor-pointer bg-gray-50/50 group"
-        >
-          <div className="w-10 h-10 rounded-full bg-white shadow-xs flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-            <Plus className="w-5 h-5 text-gray-500 group-hover:text-[#1b7a53]" />
-          </div>
-          <span className="text-xs font-bold text-gray-700">Add Photos</span>
-          <span className="text-[10px] text-gray-400">or click to browse</span>
-        </div>
+        {images.length < 8 && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="aspect-square border-2 border-dashed border-gray-300 hover:border-[#1b7a53] hover:bg-emerald-50/40 rounded-2xl flex flex-col items-center justify-center p-3 text-center transition-all cursor-pointer group"
+          >
+            <div className="w-10 h-10 rounded-full bg-gray-100 group-hover:bg-[#1b7a53]/10 text-gray-500 group-hover:text-[#1b7a53] flex items-center justify-center transition-colors mb-1">
+              <Plus className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <span className="text-xs font-bold text-gray-700 group-hover:text-[#1b7a53]">Add Photos</span>
+            <span className="text-[10px] text-gray-400">or click to browse</span>
+          </button>
+        )}
 
         {/* Uploaded Images List */}
-        {images.map((imgUrl, idx) => (
+        {images.map((imgUrl, index) => (
           <div
-            key={idx}
-            className={`relative aspect-square rounded-2xl overflow-hidden border-2 group transition-all ${
-              idx === 0 ? 'border-[#1b7a53] shadow-xs' : 'border-gray-200'
+            key={index}
+            className={`relative aspect-square rounded-2xl overflow-hidden border-2 bg-gray-50 group shadow-2xs ${
+              index === 0 ? 'border-[#1b7a53]' : 'border-gray-200'
             }`}
           >
-            <img src={imgUrl} alt={`Upload ${idx}`} className="w-full h-full object-cover" />
+            <img src={imgUrl} alt={`Upload ${index + 1}`} className="w-full h-full object-cover" />
 
             {/* Cover Badge */}
-            {idx === 0 && (
-              <span className="absolute top-2 left-2 bg-[#1b7a53] text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
+            {index === 0 ? (
+              <span className="absolute top-2 left-2 bg-[#1b7a53] text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
                 <Star className="w-3 h-3 fill-white" />
                 Cover
               </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAsCover(index)}
+                className="absolute top-2 left-2 bg-black/60 hover:bg-black/80 text-white text-[10px] font-semibold px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-xs"
+              >
+                Set Cover
+              </button>
             )}
 
-            {/* Hover Actions */}
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => handleDelete(idx)}
-                  className="w-7 h-7 rounded-lg bg-white/90 text-red-600 hover:bg-white flex items-center justify-center cursor-pointer shadow-xs"
-                  title="Delete photo"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {idx !== 0 && (
-                <button
-                  type="button"
-                  onClick={() => handleSetCover(idx)}
-                  className="w-full bg-white/95 text-gray-900 hover:text-[#1b7a53] text-[10px] font-bold py-1.5 rounded-lg cursor-pointer transition-colors shadow-xs flex items-center justify-center gap-1"
-                >
-                  <Star className="w-3 h-3 text-amber-500" />
-                  <span>Set as Cover</span>
-                </button>
-              )}
-            </div>
+            {/* Delete Button */}
+            <button
+              type="button"
+              onClick={() => removeImage(index)}
+              className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-700 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
+              title="Remove photo"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         ))}
       </div>

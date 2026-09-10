@@ -32,83 +32,95 @@ export const ProductDetails: React.FC = () => {
   const [isOfferOpen, setIsOfferOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  
   const [itemImages, setItemImages] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [specs, setSpecs] = useState<Record<string, any>>({});
   const [defectsList, setDefectsList] = useState<string[]>([]);
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const fetchExactProduct = async () => {
       if (!id) return;
       setLoading(true);
 
       try {
-        const { data, error } = await supabase
+        // 1. Check if ID exists in Supabase listings
+        const { data: dbItem, error } = await supabase
           .from('listings')
-          .select(`
-            id,
-            title,
-            category_id,
-            price,
-            original_price,
-            condition,
-            location,
-            images,
-            description,
-            specifications,
-            defects,
-            views_count,
-            created_at,
-            seller:profiles(id, first_name, surname, rating, sales_count)
-          `)
+          .select('*')
           .eq('id', id)
-          .single();
+          .maybeSingle();
 
-        if (!error && data) {
-          const sellerData = Array.isArray(data.seller) ? data.seller[0] : data.seller;
+        if (!error && dbItem) {
+          // Fetch the seller profile for this item
+          let sellerName = 'Verified Seller';
+          let sellerRating = 5.0;
+
+          if (dbItem.seller_id) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('first_name, surname, rating')
+              .eq('id', dbItem.seller_id)
+              .maybeSingle();
+
+            if (profile) {
+              sellerName = `${profile.first_name || ''} ${profile.surname || ''}`.trim() || 'Verified Seller';
+              sellerRating = profile.rating ? Number(profile.rating) : 5.0;
+            }
+          }
+
           const mapped: ProductItem = {
-            id: data.id,
-            title: data.title,
-            price: Number(data.price),
-            originalPrice: data.original_price ? Number(data.original_price) : undefined,
-            condition: data.condition,
-            category: data.category_id,
-            location: data.location,
-            sellerName: sellerData ? `${sellerData.first_name} ${sellerData.surname}`.trim() : 'Verified Seller',
-            sellerRating: sellerData?.rating ? Number(sellerData.rating) : 5.0,
-            image: data.images?.[0] || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&q=80',
+            id: dbItem.id,
+            title: dbItem.title,
+            price: Number(dbItem.price),
+            originalPrice: dbItem.original_price ? Number(dbItem.original_price) : undefined,
+            condition: dbItem.condition,
+            category: dbItem.category_id || 'Electronics',
+            location: dbItem.location,
+            sellerName,
+            sellerRating,
+            image: dbItem.images?.[0] || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&q=80',
             timeAgo: 'Recently listed',
             isVerified: true,
           };
+
           setProduct(mapped);
-          setItemImages(data.images && data.images.length > 0 ? data.images : [mapped.image]);
-          setDescription(data.description || 'No specific description provided by seller.');
-          setSpecs(data.specifications || {});
-          setDefectsList(data.defects || []);
+          setItemImages(dbItem.images && dbItem.images.length > 0 ? dbItem.images : [mapped.image]);
+          setDescription(dbItem.description || 'No description provided by seller.');
+          setSpecs(dbItem.specifications || {});
+          setDefectsList(dbItem.defects || []);
         } else {
-          // Fallback to local mock data
-          const fallback = MOCK_PRODUCTS.find((p) => p.id === id) || MOCK_PRODUCTS[0];
-          setProduct(fallback);
-          setItemImages([fallback.image]);
-          setDescription('Pre-owned item in verified functional condition.');
+          // 2. Fallback to mock item if it's one of the demo IDs (e.g., '1', '2')
+          const mockMatch = MOCK_PRODUCTS.find((p) => p.id === id);
+          if (mockMatch) {
+            setProduct(mockMatch);
+            setItemImages([mockMatch.image]);
+            setDescription('Pre-owned item verified for physical condition.');
+          } else {
+            // Default first mock if completely unknown
+            setProduct(MOCK_PRODUCTS[0]);
+            setItemImages([MOCK_PRODUCTS[0].image]);
+            setDescription('Demo marketplace listing.');
+          }
         }
       } catch (err) {
-        const fallback = MOCK_PRODUCTS.find((p) => p.id === id) || MOCK_PRODUCTS[0];
-        setProduct(fallback);
-        setItemImages([fallback.image]);
+        console.error('Error fetching PDP:', err);
+        setProduct(MOCK_PRODUCTS[0]);
+        setItemImages([MOCK_PRODUCTS[0].image]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProduct();
+    fetchExactProduct();
   }, [id]);
 
   if (loading) {
     return (
       <div className="py-24 flex flex-col items-center justify-center space-y-3">
         <Loader2 className="w-8 h-8 text-[#1b7a53] animate-spin" />
-        <p className="text-xs font-bold text-gray-500">Loading verified listing details...</p>
+        <p className="text-xs font-bold text-gray-500">Loading item details...</p>
       </div>
     );
   }
@@ -116,17 +128,20 @@ export const ProductDetails: React.FC = () => {
   if (!product) return null;
 
   const favorited = isFavorite(product.id);
+  const currentImage = itemImages[activeImageIndex] || product.image;
 
   return (
     <div className="space-y-8 py-4 max-w-7xl mx-auto pb-24 md:pb-12">
       
       {/* Breadcrumbs */}
       <nav className="text-xs text-gray-500 flex items-center gap-1.5">
-        <Link to="/explore" className="hover:text-gray-900">Explore</Link>
+        <Link to="/explore" className="hover:text-gray-900 font-medium">Explore</Link>
         <span>/</span>
-        <Link to={`/explore?category=${product.category}`} className="hover:text-gray-900 lowercase">
+        <Link to={`/explore?category=${product.category.toLowerCase()}`} className="hover:text-gray-900 lowercase font-medium">
           {product.category}
         </Link>
+        <span>/</span>
+        <span className="text-gray-900 truncate max-w-[200px]">{product.title}</span>
       </nav>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
@@ -134,13 +149,13 @@ export const ProductDetails: React.FC = () => {
         {/* Left: Photos */}
         <div className="lg:col-span-7 space-y-4">
           <div 
-            onClick={() => setLightboxImg(itemImages[0] || product.image)}
-            className="relative aspect-4/3 rounded-3xl overflow-hidden bg-gray-100 border border-gray-200 cursor-zoom-in group shadow-2xs"
+            onClick={() => setLightboxImg(currentImage)}
+            className="relative aspect-4/3 rounded-3xl overflow-hidden bg-gray-50 border border-gray-200 cursor-zoom-in group shadow-2xs"
           >
             <img
-              src={itemImages[0] || product.image}
+              src={currentImage}
               alt={product.title}
-              className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+              className="w-full h-full object-contain p-2 group-hover:scale-102 transition-transform duration-300"
             />
             <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-xs text-white px-3 py-1.5 rounded-xl flex items-center gap-1.5 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
               <Maximize2 className="w-3.5 h-3.5" />
@@ -148,17 +163,22 @@ export const ProductDetails: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {itemImages.map((img, idx) => (
-              <div
-                key={idx}
-                onClick={() => setLightboxImg(img)}
-                className="w-20 h-20 rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 cursor-pointer hover:opacity-80 transition-opacity shrink-0"
-              >
-                <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
-              </div>
-            ))}
-          </div>
+          {/* Thumbnails */}
+          {itemImages.length > 1 && (
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {itemImages.map((img, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => setActiveImageIndex(idx)}
+                  className={`w-20 h-20 rounded-2xl overflow-hidden border-2 bg-gray-50 cursor-pointer transition-all shrink-0 ${
+                    activeImageIndex === idx ? 'border-[#1b7a53] shadow-xs' : 'border-gray-200 opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right: Details & Purchase Controls */}
@@ -206,27 +226,28 @@ export const ProductDetails: React.FC = () => {
               <span>•</span>
               <span className="flex items-center gap-1 text-gray-400">
                 <Eye className="w-3.5 h-3.5" />
-                Live Active
+                Live in Database
               </span>
               <span>•</span>
               <span className="text-gray-400">{product.timeAgo}</span>
             </div>
           </div>
 
+          {/* Fair Price Banner */}
           <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3.5 space-y-1">
             <div className="flex items-center justify-between text-xs font-bold text-gray-900">
               <span className="flex items-center gap-1 text-[#1b7a53]">
                 <Sparkles className="w-3.5 h-3.5" />
                 Kinne Ho? Fair Price Meter
               </span>
-              <span className="text-[#1b7a53] font-bold">Verified Listing</span>
+              <span className="text-[#1b7a53] font-bold">Live Verified</span>
             </div>
             <p className="text-[11px] text-gray-600">
-              Listing is live on Supabase database with full Escrow handover protection.
+              Escrow funds remain protected until you inspect the item and give the Handshake PIN.
             </p>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action CTAs */}
           <div className="grid grid-cols-2 gap-3 pt-1">
             <button
               onClick={() => setIsOfferOpen(true)}
@@ -290,7 +311,7 @@ export const ProductDetails: React.FC = () => {
               <span>Kinne Ho? Escrow Protection</span>
             </div>
             <p className="text-gray-600 leading-relaxed">
-              Funds are held safely in escrow until you inspect the item and verify its condition.
+              Never pay advance cash. The seller cannot claim payment until you verify the item.
             </p>
           </div>
 
@@ -305,7 +326,7 @@ export const ProductDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* Specifications & Description */}
+      {/* Structured Specifications & Description */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 pt-10 border-t border-gray-200">
         <div className="lg:col-span-6 space-y-4">
           <h3 className="text-lg font-bold text-gray-900">Item Specifications</h3>
@@ -320,8 +341,8 @@ export const ProductDetails: React.FC = () => {
             </div>
             {Object.entries(specs).map(([key, val]) => (
               <div key={key} className="grid grid-cols-2 p-3">
-                <span className="text-gray-500 font-medium capitalize">{key}</span>
-                <span className="text-gray-900 font-semibold">{val.toString()}</span>
+                <span className="text-gray-500 font-medium capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                <span className="text-gray-900 font-semibold">{String(val)}</span>
               </div>
             ))}
           </div>
