@@ -1,7 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { MOCK_PRODUCTS } from '../data/mockData';
-import { INITIAL_THREADS } from '../data/mockChatData';
-import type { ProductItem } from '../types/marketplace';
 
 export interface ToastMessage {
   id: string;
