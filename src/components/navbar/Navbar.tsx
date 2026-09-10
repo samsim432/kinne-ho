@@ -43,18 +43,19 @@ export const Navbar: React.FC = () => {
 
         {/* Right: Icons & Sell Action */}
         <div className="flex items-center gap-4">
-          <button className="text-gray-600 hover:text-gray-900 relative p-1 transition-colors" title="Saved">
+          <Link to="/favorites" className="text-gray-600 hover:text-gray-900 relative p-1 transition-colors" title="Saved items">
             <Heart className="w-5 h-5" />
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#1b7a53] rounded-full"></span>
-          </button>
+          </Link>
           
-          <button className="text-gray-600 hover:text-gray-900 p-1 transition-colors" title="Messages">
+          <Link to="/messages" className="text-gray-600 hover:text-gray-900 relative p-1 transition-colors" title="Messages & Offers">
             <MessageSquare className="w-5 h-5" />
-          </button>
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#1b7a53] rounded-full"></span>
+          </Link>
 
-          <button className="text-gray-600 hover:text-gray-900 p-1 transition-colors" title="Account">
+          <Link to="/profile/Samir%20Simkhada" className="text-gray-600 hover:text-gray-900 p-1 transition-colors" title="Profile">
             <User className="w-5 h-5" />
-          </button>
+          </Link>
 
           <button 
             onClick={() => navigate('/sell')}

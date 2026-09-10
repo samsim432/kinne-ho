@@ -145,8 +145,9 @@ export const ProductDetails: React.FC = () => {
             </button>
           </div>
 
+          {/* Direct Message Seller Button */}
           <button
-            onClick={() => alert(`Direct chat with ${product.sellerName}`)}
+            onClick={() => navigate(`/messages?seller=${encodeURIComponent(product.sellerName)}&productId=${product.id}`)}
             className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-gray-700 hover:text-gray-900 py-1 cursor-pointer"
           >
             <MessageSquare className="w-3.5 h-3.5" />

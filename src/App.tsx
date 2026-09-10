@@ -7,6 +7,8 @@ import { Explore } from './pages/Explore';
 import { ProductDetails } from './pages/ProductDetails';
 import { Sell } from './pages/Sell';
 import { UserProfile } from './pages/UserProfile';
+import { Messages } from './pages/Messages';
+import { Favorites } from './pages/Favorites';
 
 export default function App() {
   return (
@@ -21,6 +23,8 @@ export default function App() {
             <Route path="/product/:id" element={<ProductDetails />} />
             <Route path="/sell" element={<Sell />} />
             <Route path="/profile/:username" element={<UserProfile />} />
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/favorites" element={<Favorites />} />
           </Routes>
         </main>
 
