@@ -6,6 +6,7 @@ import { Home } from './pages/Home';
 import { Explore } from './pages/Explore';
 import { ProductDetails } from './pages/ProductDetails';
 import { Sell } from './pages/Sell';
+import { UserProfile } from './pages/UserProfile';
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="/explore" element={<Explore />} />
             <Route path="/product/:id" element={<ProductDetails />} />
             <Route path="/sell" element={<Sell />} />
+            <Route path="/profile/:username" element={<UserProfile />} />
           </Routes>
         </main>
 
