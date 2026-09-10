@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../data/mockData';
+import { useMarketplace } from '../context/MarketplaceContext';
+import { DeliveryMapPicker } from '../components/checkout/DeliveryMapPicker';
 import { 
   ShieldCheck, 
   MapPin, 
@@ -9,38 +11,63 @@ import {
   Wallet, 
   Lock, 
   CheckCircle2, 
-  ArrowRight,
-  AlertCircle
+  KeyRound,
+  Mail,
+  AlertCircle,
+  X
 } from 'lucide-react';
 
 export const Checkout: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  const { walletBalance, deductForEscrow, showToast } = useMarketplace();
+
+  const agreedPriceParam = searchParams.get('agreedPrice');
   const product = MOCK_PRODUCTS.find((p) => p.id === productId) || MOCK_PRODUCTS[0];
 
-  const [fulfillmentType, setFulfillmentType] = useState<'pickup' | 'delivery'>('pickup');
-  const [deliveryAddress, setDeliveryAddress] = useState('New Baneshwor, Kathmandu (Near Chowk)');
-  const [userWalletBalance] = useState(65000); // Demo balance
-  const [isProcessing, setIsProcessing] = useState(false);
+  // Use agreed negotiated price if present, otherwise default price
+  const itemPrice = agreedPriceParam ? parseInt(agreedPriceParam, 10) : product.price;
+
+  const [fulfillmentType, setFulfillmentType] = useState<'pickup' | 'delivery'>('delivery');
+  const [deliveryAddress, setDeliveryAddress] = useState('New Baneshwor, Kathmandu (Near Eye Hospital)');
+  const [pinnedCoordinates, setPinnedCoordinates] = useState({ lat: 27.7172, lng: 85.3240, label: 'Kathmandu' });
+
+  // 2FA Security Email Verification Gate
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [securityCode, setSecurityCode] = useState('');
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
 
   const deliveryFee = fulfillmentType === 'delivery' ? 180 : 0;
-  const totalAmount = product.price + deliveryFee;
-  const isBalanceSufficient = userWalletBalance >= totalAmount;
+  const totalAmount = itemPrice + deliveryFee;
+  const isBalanceSufficient = walletBalance >= totalAmount;
 
-  const handleConfirmPurchase = () => {
+  const handleInitiatePayment = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!isBalanceSufficient) {
-      alert('Insufficient wallet balance. Please load your wallet via eSewa or Khalti.');
+      showToast('Insufficient wallet balance', 'Please load funds via eSewa or Khalti.', 'error');
       navigate('/wallet');
       return;
     }
+    // Open 2FA Security Email Modal
+    setShowSecurityModal(true);
+  };
 
-    setIsProcessing(true);
+  const handleConfirmSecurityCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifyingCode(true);
+
     setTimeout(() => {
-      // Save order mock to localStorage or state
-      const orderId = `order-${Date.now()}`;
-      navigate(`/order/${orderId}?productId=${product.id}&fulfillment=${fulfillmentType}&fee=${deliveryFee}`);
-    }, 1200);
+      const success = deductForEscrow(totalAmount);
+      setIsVerifyingCode(false);
+
+      if (success) {
+        setShowSecurityModal(false);
+        const orderId = `order-${Date.now()}`;
+        navigate(`/order/${orderId}?productId=${product.id}&fulfillment=${fulfillmentType}&fee=${deliveryFee}`);
+      }
+    }, 1000);
   };
 
   return (
@@ -52,18 +79,18 @@ export const Checkout: React.FC = () => {
           Secure Escrow Checkout
         </h1>
         <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-          Your payment is held in Kinne Ho? Escrow until you receive and approve the item.
+          Guaranteed protection. Funds are held safely in Kinne Ho? Escrow until inspection.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* Left: Options & Address */}
+        {/* Left: Fulfillment, Address & Interactive Map */}
         <div className="lg:col-span-7 space-y-5">
           
-          {/* 1. Fulfillment Method Selection */}
+          {/* 1. Fulfillment Option */}
           <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4 shadow-2xs">
-            <h3 className="text-sm font-bold text-gray-900">1. Choose How to Get Your Item</h3>
+            <h3 className="text-sm font-bold text-gray-900">1. Delivery or Pickup Method</h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               
@@ -81,13 +108,13 @@ export const Checkout: React.FC = () => {
                     <UserCheck className="w-4 h-4" />
                   </div>
                   <span className="text-xs font-bold text-[#1b7a53] bg-[#1b7a53]/10 px-2 py-0.5 rounded-full">
-                    Free (Rs. 0)
+                    FREE (Rs. 0)
                   </span>
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-gray-900">Self Pickup</h4>
                   <p className="text-[11px] text-gray-500 mt-0.5">
-                    Meet seller at {product.location}. Verify with your 6-digit Handshake PIN.
+                    Meet seller at {product.location}. Handshake PIN required.
                   </p>
                 </div>
               </div>
@@ -112,7 +139,7 @@ export const Checkout: React.FC = () => {
                 <div>
                   <h4 className="text-sm font-bold text-gray-900">Doorstep Delivery</h4>
                   <p className="text-[11px] text-gray-500 mt-0.5">
-                    Shipped by seller or courier. 48-hour inspection protection included.
+                    Delivered to your pinned address with 48h inspection.
                   </p>
                 </div>
               </div>
@@ -120,22 +147,32 @@ export const Checkout: React.FC = () => {
             </div>
           </div>
 
-          {/* 2. Address (Only if Delivery selected) */}
+          {/* 2. Address & Interactive Map (Only if Delivery chosen) */}
           {fulfillmentType === 'delivery' && (
-            <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-3 shadow-2xs">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-[#1b7a53]" />
-                  <span>Delivery Address</span>
-                </h3>
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4 shadow-2xs">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-[#1b7a53]" />
+                <span>2. Delivery Address & Map Pin</span>
+              </h3>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 block">Street / Chowk / Area Address</label>
+                <input
+                  type="text"
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-gray-900 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53]"
+                  placeholder="e.g. House 42, New Baneshwor, Kathmandu"
+                  required
+                />
               </div>
-              <input
-                type="text"
-                value={deliveryAddress}
-                onChange={(e) => setDeliveryAddress(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-gray-900 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53]"
-                placeholder="Enter complete street, area, house number"
-                required
+
+              {/* Interactive OpenStreetMap Pin Selector */}
+              <DeliveryMapPicker
+                onSelectCoordinates={(lat, lng, label) => {
+                  setPinnedCoordinates({ lat, lng, label });
+                  setDeliveryAddress((prev) => `${prev.split(' (')[0]} (${label})`);
+                }}
               />
             </div>
           )}
@@ -144,20 +181,19 @@ export const Checkout: React.FC = () => {
           <div className="bg-[#f0f9f5] border border-[#d2efe2] rounded-2xl p-4 flex items-start gap-3">
             <ShieldCheck className="w-5 h-5 text-[#1b7a53] shrink-0 mt-0.5" />
             <div className="text-xs text-gray-700 space-y-0.5 leading-relaxed">
-              <span className="font-bold text-gray-900 block">Kinne Ho? Buyer Protection Active</span>
+              <span className="font-bold text-gray-900 block">Kinne Ho? Escrow Security Active</span>
               <p>
-                The seller does <strong>NOT</strong> receive your money right now. The funds are locked in Escrow. Once you physically inspect the item, you confirm and release the funds.
+                Your funds are locked safely in escrow. The seller cannot withdraw until you verify the item and approve condition.
               </p>
             </div>
           </div>
 
         </div>
 
-        {/* Right: Order Summary & Wallet Payment */}
+        {/* Right: Order Summary & Wallet Checkout */}
         <div className="lg:col-span-5 space-y-5">
-          
           <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4 shadow-2xs">
-            <h3 className="text-sm font-bold text-gray-900">Order Summary</h3>
+            <h3 className="text-sm font-bold text-gray-900">Payment Breakdown</h3>
 
             {/* Product Item Pill */}
             <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
@@ -169,9 +205,16 @@ export const Checkout: React.FC = () => {
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-bold text-gray-900 truncate">{product.title}</h4>
                 <p className="text-[11px] text-gray-400">Seller: {product.sellerName}</p>
-                <span className="text-xs font-extrabold text-[#1b7a53]">
-                  Rs. {product.price.toLocaleString()}
-                </span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xs font-extrabold text-[#1b7a53]">
+                    Rs. {itemPrice.toLocaleString()}
+                  </span>
+                  {agreedPriceParam && (
+                    <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded font-bold">
+                      Agreed Price
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -179,7 +222,7 @@ export const Checkout: React.FC = () => {
             <div className="space-y-2 text-xs text-gray-600">
               <div className="flex justify-between">
                 <span>Item Price</span>
-                <span className="font-semibold text-gray-900">Rs. {product.price.toLocaleString()}</span>
+                <span className="font-semibold text-gray-900">Rs. {itemPrice.toLocaleString()}</span>
               </div>
 
               <div className="flex justify-between">
@@ -190,12 +233,12 @@ export const Checkout: React.FC = () => {
               </div>
 
               <div className="flex justify-between">
-                <span>Escrow Protection Fee</span>
+                <span>Escrow Protection</span>
                 <span className="font-semibold text-[#1b7a53]">FREE</span>
               </div>
 
               <div className="pt-2 border-t border-gray-100 flex justify-between items-baseline text-sm">
-                <span className="font-bold text-gray-900">Total Escrow Hold</span>
+                <span className="font-bold text-gray-900">Total Escrow Lock</span>
                 <span className="text-lg font-extrabold text-[#1b7a53]">
                   Rs. {totalAmount.toLocaleString()}
                 </span>
@@ -206,9 +249,9 @@ export const Checkout: React.FC = () => {
             <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-gray-500" />
-                <span>Your Wallet Balance:</span>
+                <span>Wallet Balance:</span>
               </div>
-              <span className="font-bold text-gray-900">Rs. {userWalletBalance.toLocaleString()}</span>
+              <span className="font-bold text-gray-900">Rs. {walletBalance.toLocaleString()}</span>
             </div>
 
             {!isBalanceSufficient && (
@@ -218,21 +261,74 @@ export const Checkout: React.FC = () => {
               </div>
             )}
 
-            {/* Confirm & Hold Button */}
             <button
-              onClick={handleConfirmPurchase}
-              disabled={isProcessing || !isBalanceSufficient}
+              onClick={handleInitiatePayment}
+              disabled={!isBalanceSufficient}
               className="w-full bg-[#1b7a53] hover:bg-[#156343] text-white font-bold py-3 rounded-xl transition-all shadow-xs cursor-pointer text-xs sm:text-sm flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <Lock className="w-4 h-4" />
-              <span>{isProcessing ? 'Locking in Escrow...' : `Pay Rs. ${totalAmount.toLocaleString()} to Escrow`}</span>
+              <span>Authorize & Pay Rs. {totalAmount.toLocaleString()}</span>
             </button>
-
           </div>
-
         </div>
 
       </div>
+
+      {/* 2FA Email Security Verification Modal */}
+      {showSecurityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
+            <button
+              onClick={() => setShowSecurityModal(false)}
+              className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center space-y-1">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#1b7a53] flex items-center justify-center mx-auto">
+                <Mail className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Email Payment Authorization</h3>
+              <p className="text-xs text-gray-500">
+                We sent a 6-digit confirmation code to <strong>wrongsamir88@gmail.com</strong>
+              </p>
+            </div>
+
+            <form onSubmit={handleConfirmSecurityCode} className="space-y-4">
+              <div className="p-3 bg-gray-50 rounded-2xl text-center text-xs text-gray-500 space-y-0.5">
+                <p>Sample Demo Verification Code:</p>
+                <span className="font-extrabold text-sm text-[#1b7a53] tracking-wider">829401</span>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 block text-center uppercase tracking-wider">
+                  Enter 6-Digit Email Code
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="829401"
+                  value={securityCode}
+                  onChange={(e) => setSecurityCode(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 text-center text-2xl tracking-widest font-extrabold text-gray-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#1b7a53]"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isVerifyingCode || securityCode.length < 4}
+                className="w-full bg-[#1b7a53] hover:bg-[#156343] text-white font-bold py-3 rounded-xl transition-all shadow-xs cursor-pointer text-xs sm:text-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <Lock className="w-4 h-4" />
+                <span>{isVerifyingCode ? 'Authorizing Payment...' : `Confirm & Lock Rs. ${totalAmount.toLocaleString()} in Escrow`}</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
