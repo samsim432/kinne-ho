@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { MOCK_PRODUCTS } from '../data/mockData';
 import { useMarketplace } from '../context/MarketplaceContext';
+import { useLanguage } from '../context/LanguageContext';
 import type { SellerDeliveryMethod, EscrowStatus } from '../types/escrow';
 import { 
   ShieldCheck, 
@@ -13,13 +14,24 @@ import {
   UserCheck, 
   Clock, 
   Upload, 
-  X 
+  X,
+  Truck,
+  PackageCheck,
+  CreditCard
 } from 'lucide-react';
+
+const TRACKING_STEPS = [
+  { id: 'escrow_locked', label: 'Escrow Locked', icon: ShieldCheck },
+  { id: 'in_transit', label: 'Dispatched / Meetup', icon: Truck },
+  { id: 'delivered_pending_review', label: '48h Inspection', icon: Clock },
+  { id: 'completed_released', label: 'Funds Released', icon: CheckCircle2 },
+];
 
 export const OrderDetail: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { releaseEscrowToSeller } = useMarketplace();
+  const { t } = useLanguage();
 
   const productId = searchParams.get('productId') || '1';
   const fulfillmentType = (searchParams.get('fulfillment') as 'pickup' | 'delivery') || 'pickup';
@@ -34,11 +46,17 @@ export const OrderDetail: React.FC = () => {
   const [handshakePin] = useState('749201');
   const [sellerInputPin, setSellerInputPin] = useState('');
   const [sellerMethod, setSellerMethod] = useState<SellerDeliveryMethod>('seller_p2p');
-  const [courierWaybill, setCourierWaybill] = useState('');
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
 
-  // Seller verifies OTP Handshake
+  const getActiveStepIndex = () => {
+    if (orderStatus === 'escrow_locked' || orderStatus === 'awaiting_handover') return 0;
+    if (orderStatus === 'in_transit') return 1;
+    if (orderStatus === 'delivered_pending_review') return 2;
+    if (orderStatus === 'completed_released') return 3;
+    return 2;
+  };
+
   const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
     if (sellerInputPin === handshakePin) {
@@ -49,7 +67,6 @@ export const OrderDetail: React.FC = () => {
     }
   };
 
-  // Buyer confirms & releases funds
   const handleBuyerReleaseFunds = () => {
     releaseEscrowToSeller(product.price + deliveryFee);
     setOrderStatus('completed_released');
@@ -60,7 +77,7 @@ export const OrderDetail: React.FC = () => {
     <div className="py-6 max-w-4xl mx-auto space-y-6">
       
       {/* Header */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-2xs space-y-3">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
@@ -78,13 +95,37 @@ export const OrderDetail: React.FC = () => {
 
           <div className="flex items-center gap-1.5 text-xs text-[#1b7a53] font-bold bg-[#1b7a53]/10 px-3 py-1 rounded-full w-fit">
             <ShieldCheck className="w-4 h-4" />
-            <span>Escrow Protected: Rs. {(product.price + deliveryFee).toLocaleString()}</span>
+            <span>{t.escrowProtected}: Rs. {(product.price + deliveryFee).toLocaleString()}</span>
           </div>
         </div>
 
         <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900">
           {product.title}
         </h1>
+
+        {/* Visual Escrow Progress Stepper */}
+        <div className="pt-3 border-t border-gray-100">
+          <div className="grid grid-cols-4 gap-2 relative">
+            {TRACKING_STEPS.map((stepItem, idx) => {
+              const Icon = stepItem.icon;
+              const isActive = idx <= getActiveStepIndex();
+              const isCurrent = idx === getActiveStepIndex();
+
+              return (
+                <div key={stepItem.id} className="flex flex-col items-center text-center space-y-1.5">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                    isActive ? 'bg-[#1b7a53] text-white shadow-xs' : 'bg-gray-100 text-gray-400'
+                  } ${isCurrent ? 'ring-2 ring-[#1b7a53] ring-offset-2' : ''}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <span className={`text-[11px] font-bold ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {stepItem.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* 1. PICKUP VIEW: Handshake OTP & Visual QR */}
@@ -215,7 +256,7 @@ export const OrderDetail: React.FC = () => {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4 shadow-2xs">
           <div className="flex items-center justify-between pb-3 border-b border-gray-100">
             <div>
-              <h3 className="text-base font-bold text-gray-900">48-Hour Inspection Window Active</h3>
+              <h3 className="text-base font-bold text-gray-900">{t.inspectItemNotice}</h3>
               <p className="text-xs text-gray-500 mt-0.5">
                 Inspect your {product.title}. Ensure condition matches the description.
               </p>
@@ -232,7 +273,7 @@ export const OrderDetail: React.FC = () => {
               className="bg-[#1b7a53] hover:bg-[#156343] text-white font-bold py-3 rounded-xl transition-all shadow-xs cursor-pointer text-xs sm:text-sm flex items-center justify-center gap-2"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>I Received Item & Everything is OK</span>
+              <span>{t.itemReceivedOk}</span>
             </button>
 
             <button
@@ -240,7 +281,7 @@ export const OrderDetail: React.FC = () => {
               className="bg-white hover:bg-red-50 border border-red-200 text-red-600 font-bold py-3 rounded-xl transition-all shadow-xs cursor-pointer text-xs sm:text-sm flex items-center justify-center gap-2"
             >
               <AlertTriangle className="w-4 h-4" />
-              <span>I Have an Issue (Report Defect)</span>
+              <span>{t.reportIssue}</span>
             </button>
           </div>
         </div>
