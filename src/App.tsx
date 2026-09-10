@@ -9,6 +9,10 @@ import { Sell } from './pages/Sell';
 import { UserProfile } from './pages/UserProfile';
 import { Messages } from './pages/Messages';
 import { Favorites } from './pages/Favorites';
+import { Auth } from './pages/Auth';
+import { MyListings } from './pages/MyListings';
+import { Safety } from './pages/Safety';
+import { Wallet } from './pages/Wallet';
 
 export default function App() {
   return (
@@ -25,6 +29,10 @@ export default function App() {
             <Route path="/profile/:username" element={<UserProfile />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/favorites" element={<Favorites />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/my-listings" element={<MyListings />} />
+            <Route path="/safety" element={<Safety />} />
+            <Route path="/wallet" element={<Wallet />} />
           </Routes>
         </main>
 
