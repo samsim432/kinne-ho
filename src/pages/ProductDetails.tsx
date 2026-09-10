@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../data/mockData';
 import { ProductCard } from '../components/marketplace/ProductCard';
 import { MakeOfferModal } from '../components/offers/MakeOfferModal';
+import { ReportModal } from '../components/marketplace/ReportModal';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { 
   Heart, 
@@ -16,7 +17,6 @@ import {
   ArrowRight,
   Maximize2,
   X,
-  TrendingDown,
   Sparkles
 } from 'lucide-react';
 
@@ -26,6 +26,7 @@ export const ProductDetails: React.FC = () => {
   const { isFavorite, toggleFavorite } = useMarketplace();
 
   const [isOfferOpen, setIsOfferOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
   const product = MOCK_PRODUCTS.find((p) => p.id === id) || MOCK_PRODUCTS[0];
@@ -35,7 +36,6 @@ export const ProductDetails: React.FC = () => {
     (p) => p.category === product.category && p.id !== product.id
   ).slice(0, 4);
 
-  // Negotiation state
   const [hasOffer, setHasOffer] = useState(true);
   const [userOffer, setUserOffer] = useState(44000);
   const [sellerCounter, setSellerCounter] = useState(46000);
@@ -52,10 +52,9 @@ export const ProductDetails: React.FC = () => {
         </Link>
       </nav>
 
-      {/* Main Product Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
         
-        {/* Left Column: Photos with Lightbox Trigger */}
+        {/* Photos */}
         <div className="lg:col-span-7 space-y-4">
           <div 
             onClick={() => setLightboxImg(product.image)}
@@ -85,10 +84,9 @@ export const ProductDetails: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: Details & Actions */}
+        {/* Details & Actions */}
         <div className="lg:col-span-5 space-y-5">
           
-          {/* Header */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
@@ -103,7 +101,6 @@ export const ProductDetails: React.FC = () => {
               </button>
             </div>
 
-            {/* Price */}
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold text-gray-900">
                 Rs. {product.price.toLocaleString()}
@@ -120,7 +117,6 @@ export const ProductDetails: React.FC = () => {
               )}
             </div>
 
-            {/* Badges */}
             <div className="flex items-center flex-wrap gap-2 text-xs text-gray-500 pt-1">
               <span className="bg-[#1b7a53]/10 text-[#1b7a53] px-2 py-0.5 rounded font-medium">
                 {product.condition}
@@ -140,7 +136,6 @@ export const ProductDetails: React.FC = () => {
             </div>
           </div>
 
-          {/* Nepal Bargain / Fair Price Meter */}
           <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3.5 space-y-1.5">
             <div className="flex items-center justify-between text-xs font-bold text-gray-900">
               <span className="flex items-center gap-1 text-[#1b7a53]">
@@ -150,11 +145,10 @@ export const ProductDetails: React.FC = () => {
               <span className="text-[#1b7a53]">Great Deal</span>
             </div>
             <p className="text-[11px] text-gray-600">
-              Similar {product.title.split(' ')[0]}s in Kathmandu valley sell between <strong>Rs. {Math.round(product.price * 0.95).toLocaleString()}</strong> – <strong>Rs. {Math.round(product.price * 1.1).toLocaleString()}</strong>.
+              Similar {product.title.split(' ')[0]}s sell between <strong>Rs. {Math.round(product.price * 0.95).toLocaleString()}</strong> – <strong>Rs. {Math.round(product.price * 1.1).toLocaleString()}</strong>.
             </p>
           </div>
 
-          {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3 pt-1">
             <button
               onClick={() => setIsOfferOpen(true)}
@@ -170,7 +164,6 @@ export const ProductDetails: React.FC = () => {
             </button>
           </div>
 
-          {/* Message Seller */}
           <button
             onClick={() => navigate(`/messages?seller=${encodeURIComponent(product.sellerName)}&productId=${product.id}`)}
             className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-gray-700 hover:text-gray-900 py-1 cursor-pointer"
@@ -179,7 +172,6 @@ export const ProductDetails: React.FC = () => {
             <span>Message Seller</span>
           </button>
 
-          {/* Live Negotiation Card */}
           {hasOffer && (
             <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3 shadow-2xs">
               <div className="flex items-center justify-between">
@@ -209,7 +201,7 @@ export const ProductDetails: React.FC = () => {
             </div>
           )}
 
-          {/* Seller Profile Card */}
+          {/* Seller Card */}
           <div className="space-y-2">
             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Seller</span>
             <div 
@@ -243,7 +235,6 @@ export const ProductDetails: React.FC = () => {
             </div>
           </div>
 
-          {/* Escrow Guarantee */}
           <div className="bg-[#f0f9f5] border border-[#d2efe2] rounded-2xl p-4 space-y-1.5 text-xs text-gray-700">
             <div className="flex items-center gap-1.5 font-bold text-gray-900">
               <ShieldCheck className="w-4 h-4 text-[#1b7a53]" />
@@ -254,10 +245,19 @@ export const ProductDetails: React.FC = () => {
             </p>
           </div>
 
+          {/* Functional Report Trigger */}
+          <button 
+            onClick={() => setIsReportOpen(true)}
+            className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-600 transition-colors cursor-pointer pt-1"
+          >
+            <Flag className="w-3.5 h-3.5" />
+            <span>Report listing</span>
+          </button>
+
         </div>
       </div>
 
-      {/* 2-Column Section: Item Details Table vs Description */}
+      {/* Item Details */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 pt-10 border-t border-gray-200">
         <div className="lg:col-span-6 space-y-4">
           <h3 className="text-lg font-bold text-gray-900">Item details</h3>
@@ -284,7 +284,7 @@ export const ProductDetails: React.FC = () => {
         <div className="lg:col-span-6 space-y-4">
           <h3 className="text-lg font-bold text-gray-900">Description</h3>
           <p className="text-xs sm:text-sm text-gray-600 leading-relaxed bg-white border border-gray-200 rounded-xl p-4">
-            Used for about two years as daily phone. Screen is scratchless with screen protector applied since day 1. Battery still comfortably lasts a full day. Comes with charging cable and transparent case.
+            Used for about two years as daily phone. Screen is scratchless with screen protector applied since day 1. Battery still comfortably lasts a full day.
           </p>
         </div>
       </div>
@@ -304,12 +304,12 @@ export const ProductDetails: React.FC = () => {
           <img
             src={lightboxImg}
             alt="Enlarged view"
-            className="max-w-4xl max-h-[85vh] w-auto h-auto rounded-xl object-contain shadow-2xl animate-in zoom-in-95 duration-150"
+            className="max-w-4xl max-h-[85vh] w-auto h-auto rounded-xl object-contain shadow-2xl"
           />
         </div>
       )}
 
-      {/* Offer Modal */}
+      {/* Make Offer Modal */}
       <MakeOfferModal
         product={product}
         isOpen={isOfferOpen}
@@ -318,6 +318,13 @@ export const ProductDetails: React.FC = () => {
           setUserOffer(amount);
           setHasOffer(true);
         }}
+      />
+
+      {/* Report Modal */}
+      <ReportModal
+        product={product}
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
       />
 
     </div>

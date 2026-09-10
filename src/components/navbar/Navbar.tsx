@@ -1,5 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Heart, MessageSquare, User, Plus, Package, ShieldCheck, LogOut, LogIn, Wallet, ChevronDown, Globe } from 'lucide-react';
+import { 
+  Search, 
+  Heart, 
+  MessageSquare, 
+  User, 
+  Plus, 
+  Package, 
+  ShieldCheck, 
+  LogOut, 
+  LogIn, 
+  Wallet, 
+  ChevronDown, 
+  Bell,
+  Tag,
+  ArrowRight
+} from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMarketplace } from '../../context/MarketplaceContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -12,6 +27,33 @@ const CATEGORIES = [
   { name: 'Books', icon: '📚', slug: 'books' },
 ];
 
+const NOTIFICATIONS = [
+  {
+    id: 'n1',
+    title: 'Counter Offer: Rs. 46,000',
+    desc: 'Samir Simkhada countered your offer on iPhone 13.',
+    time: '10m ago',
+    link: '/messages',
+    unread: true,
+  },
+  {
+    id: 'n2',
+    title: 'Price Drop Alert (-15%)',
+    desc: 'An item in your saved wishlist dropped in price.',
+    time: '1h ago',
+    link: '/favorites',
+    unread: true,
+  },
+  {
+    id: 'n3',
+    title: 'Order Status Update',
+    desc: 'Order #KH-1902 is ready for in-person Handshake OTP verification.',
+    time: '3h ago',
+    link: '/order/order-demo?productId=1&fulfillment=pickup',
+    unread: false,
+  },
+];
+
 export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const { setIsSearchOpen, favorites } = useMarketplace();
@@ -19,9 +61,11 @@ export const Navbar: React.FC = () => {
   
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   const categoriesRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -30,6 +74,9 @@ export const Navbar: React.FC = () => {
       }
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -64,6 +111,7 @@ export const Navbar: React.FC = () => {
                 onClick={() => {
                   setIsCategoriesOpen(!isCategoriesOpen);
                   setIsProfileOpen(false);
+                  setIsNotifOpen(false);
                 }}
                 className={`flex items-center gap-1 hover:text-gray-900 transition-colors cursor-pointer ${
                   isCategoriesOpen ? 'text-gray-900 font-semibold' : ''
@@ -99,7 +147,7 @@ export const Navbar: React.FC = () => {
           </nav>
         </div>
 
-        {/* Center: Command Palette Trigger */}
+        {/* Center: Search Trigger */}
         <div className="flex-1 max-w-md hidden sm:block">
           <button
             onClick={() => setIsSearchOpen(true)}
@@ -115,10 +163,10 @@ export const Navbar: React.FC = () => {
           </button>
         </div>
 
-        {/* Right: Bilingual Toggle + Icons + Profile + Sell */}
+        {/* Right Action Icons */}
         <div className="flex items-center gap-3 sm:gap-4">
           
-          {/* Language Switcher Pill */}
+          {/* Language Switcher */}
           <div className="flex items-center bg-gray-100 p-0.5 rounded-lg text-xs font-bold">
             <button
               onClick={() => setLanguage('en')}
@@ -136,6 +184,51 @@ export const Navbar: React.FC = () => {
             >
               नेपाली
             </button>
+          </div>
+
+          {/* Notifications Dropdown */}
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={() => {
+                setIsNotifOpen(!isNotifOpen);
+                setIsProfileOpen(false);
+                setIsCategoriesOpen(false);
+              }}
+              className="text-gray-600 hover:text-gray-900 relative p-1 transition-colors cursor-pointer"
+              title="Notifications"
+            >
+              <Bell className="w-5 h-5" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
+
+            {isNotifOpen && (
+              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border border-gray-200 rounded-2xl shadow-xl py-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+                  <span className="font-bold text-gray-900">Notifications</span>
+                  <span className="text-[10px] text-[#1b7a53] font-bold">2 Unread</span>
+                </div>
+
+                <div className="divide-y divide-gray-100 max-h-72 overflow-y-auto">
+                  {NOTIFICATIONS.map((n) => (
+                    <Link
+                      key={n.id}
+                      to={n.link}
+                      onClick={() => setIsNotifOpen(false)}
+                      className="p-3 hover:bg-gray-50 flex items-start gap-2.5 transition-colors block"
+                    >
+                      <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${n.unread ? 'bg-[#1b7a53]' : 'bg-transparent'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline">
+                          <h4 className="font-bold text-gray-900 text-xs truncate">{n.title}</h4>
+                          <span className="text-[10px] text-gray-400 shrink-0">{n.time}</span>
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-0.5">{n.desc}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <Link to="/favorites" className="text-gray-600 hover:text-gray-900 relative p-1 transition-colors" title={t.savedItems}>
@@ -156,6 +249,7 @@ export const Navbar: React.FC = () => {
               onClick={() => {
                 setIsProfileOpen(!isProfileOpen);
                 setIsCategoriesOpen(false);
+                setIsNotifOpen(false);
               }}
               className="text-gray-600 hover:text-gray-900 p-1 transition-colors cursor-pointer flex items-center"
               title="Account Menu"
@@ -200,7 +294,7 @@ export const Navbar: React.FC = () => {
                 <Link
                   to="/safety"
                   onClick={() => setIsProfileOpen(false)}
-                  className="flex items-center gap-2.5 px-3.5 py-2 text-gray-700 hover:bg-gray-50 hover:text-[#1b7a53] font-medium"
+                  className="flex items-center gap-2.5 px-3.5 py-2 text-gray-700 hover:bg-gray-50 font-medium"
                 >
                   <ShieldCheck className="w-4 h-4 text-gray-400" />
                   <span>{t.safety}</span>
