@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { ImageUploader } from '../components/sell/ImageUploader';
 import { 
@@ -8,7 +10,7 @@ import {
   ArrowRight, 
   Sparkles, 
   ShieldCheck,
-  Tag
+  Loader2
 } from 'lucide-react';
 
 interface DefectOption {
@@ -32,10 +34,12 @@ const ELECTRONICS_DEFECTS: DefectOption[] = [
 
 export const Sell: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { showToast } = useMarketplace();
 
   const [step, setStep] = useState<number>(1);
   const totalSteps = 6;
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State
   const [category, setCategory] = useState<'Clothing' | 'Furniture' | 'Gaming' | 'Electronics' | 'Books'>('Electronics');
@@ -78,15 +82,60 @@ export const Sell: React.FC = () => {
     setStep((prev) => Math.min(prev + 1, totalSteps));
   };
 
-  const handlePublish = () => {
-    showToast('Listing published successfully! 🎉', 'Your item is now live on the marketplace', 'success');
-    navigate('/my-listings');
+  const handlePublish = async () => {
+    if (!user) {
+      showToast('Please sign in to publish', 'You need an account to list items.', 'warning');
+      navigate('/auth');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const specifications = category === 'Electronics' 
+        ? { brand, model, batteryHealth }
+        : category === 'Clothing'
+        ? { size: clothingSize }
+        : {};
+
+      const { data, error } = await supabase
+        .from('listings')
+        .insert([
+          {
+            seller_id: user.id,
+            title: title.trim(),
+            category_id: category.toLowerCase(),
+            price: parseInt(price, 10),
+            original_price: originalPrice ? parseInt(originalPrice, 10) : null,
+            condition,
+            location,
+            description: description.trim(),
+            brand: brand.trim() || null,
+            model: model.trim() || null,
+            specifications,
+            defects: selectedDefects,
+            images,
+            status: 'active',
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      showToast('Listing published successfully! 🎉', 'Your item is now live in the database.', 'success');
+      navigate(`/product/${data.id}`);
+    } catch (err: any) {
+      showToast('Publish Failed', err.message || 'Could not save listing to database', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="py-6 max-w-3xl mx-auto space-y-6">
       
-      {/* Step Progress Bar */}
+      {/* Progress Bar */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs font-bold text-gray-500">
           <span>Step {step} of {totalSteps}</span>
@@ -107,18 +156,16 @@ export const Sell: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Step Card Container */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-2xs space-y-6">
         
-        {/* STEP 1: Photos, Title & Category */}
+        {/* Step 1: Photos & Title */}
         {step === 1 && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Upload Photos & Basic Details</h2>
-              <p className="text-xs text-gray-500">Items with clear photos sell within 48 hours in Nepal.</p>
+              <p className="text-xs text-gray-500">Clear photos help items sell faster.</p>
             </div>
 
-            {/* Interactive Image Uploader */}
             <ImageUploader images={images} setImages={setImages} />
 
             <div className="space-y-1.5 pt-2">
@@ -154,12 +201,12 @@ export const Sell: React.FC = () => {
           </div>
         )}
 
-        {/* STEP 2: Category Specific Specs */}
+        {/* Step 2: Specs */}
         {step === 2 && (
           <div className="space-y-5 animate-in fade-in duration-150">
             <div>
               <h2 className="text-xl font-bold text-gray-900">{category} Specifications</h2>
-              <p className="text-xs text-gray-500">Structured details help buyers find your item and prevent returns.</p>
+              <p className="text-xs text-gray-500">Structured details help buyers find your item.</p>
             </div>
 
             {category === 'Electronics' && (
@@ -230,14 +277,14 @@ export const Sell: React.FC = () => {
                 rows={4}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Include details like included accessories, reason for selling, and usage duration..."
+                placeholder="Include details like included accessories, condition notes, and usage history..."
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs sm:text-sm text-gray-900 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53]"
               />
             </div>
           </div>
         )}
 
-        {/* STEP 3: Condition & Defects */}
+        {/* Step 3: Condition & Defects */}
         {step === 3 && (
           <div className="space-y-5 animate-in fade-in duration-150">
             <div>
@@ -266,7 +313,7 @@ export const Sell: React.FC = () => {
             </div>
 
             <div className="space-y-2 pt-2">
-              <label className="text-xs font-bold text-gray-700 block">Check Any Existing Flaws (if any)</label>
+              <label className="text-xs font-bold text-gray-700 block">Check Any Existing Flaws</label>
               <div className="space-y-2">
                 {(category === 'Clothing' ? CLOTHING_DEFECTS : ELECTRONICS_DEFECTS).map((defect) => {
                   const isChecked = selectedDefects.includes(defect.id);
@@ -290,12 +337,12 @@ export const Sell: React.FC = () => {
           </div>
         )}
 
-        {/* STEP 4: Pricing */}
+        {/* Step 4: Pricing */}
         {step === 4 && (
           <div className="space-y-5 animate-in fade-in duration-150">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Set Your Price</h2>
-              <p className="text-xs text-gray-500">Competitive prices sell 3x faster in Nepal.</p>
+              <p className="text-xs text-gray-500">Fair prices receive offers 3x faster.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -314,7 +361,7 @@ export const Sell: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700">Original / Bought Price (Optional)</label>
+                <label className="text-xs font-bold text-gray-700">Original Price (Optional)</label>
                 <div className="relative flex items-center">
                   <span className="absolute left-3.5 text-sm font-bold text-gray-500">Rs.</span>
                   <input
@@ -330,17 +377,17 @@ export const Sell: React.FC = () => {
 
             <div className="bg-[#f0f9f5] border border-[#d2efe2] rounded-xl p-4 flex items-start gap-2.5 text-xs text-gray-700">
               <ShieldCheck className="w-4 h-4 text-[#1b7a53] shrink-0 mt-0.5" />
-              <span>Buyers will pay directly into Kinne Ho? Escrow. You receive payouts instantly to your wallet upon confirmed handover.</span>
+              <span>Buyers pay into Kinne Ho? Escrow. Funds release directly to your wallet upon confirmed handover.</span>
             </div>
           </div>
         )}
 
-        {/* STEP 5: Location */}
+        {/* Step 5: Location */}
         {step === 5 && (
           <div className="space-y-5 animate-in fade-in duration-150">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Pickup Location</h2>
-              <p className="text-xs text-gray-500">Where can buyers meet you for inspection and Handshake OTP?</p>
+              <p className="text-xs text-gray-500">Where can buyers meet you for inspection and Handshake PIN exchange?</p>
             </div>
 
             <div className="space-y-2">
@@ -365,16 +412,16 @@ export const Sell: React.FC = () => {
           </div>
         )}
 
-        {/* STEP 6: Summary Preview */}
+        {/* Step 6: Review & Publish */}
         {step === 6 && (
           <div className="space-y-5 animate-in fade-in duration-150">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Review Your Listing</h2>
-              <p className="text-xs text-gray-500">Make sure everything looks accurate before publishing.</p>
+              <p className="text-xs text-gray-500">Confirm details before saving to the live database.</p>
             </div>
 
             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex gap-4 items-center">
-              <img src={images[0] || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&q=80'} alt="Preview" className="w-20 h-20 rounded-xl object-cover bg-gray-200" />
+              <img src={images[0]} alt="Preview" className="w-20 h-20 rounded-xl object-cover bg-gray-200" />
               <div className="space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-[#1b7a53]/10 text-[#1b7a53] px-2 py-0.5 rounded">
                   {category} · {condition}
@@ -389,13 +436,14 @@ export const Sell: React.FC = () => {
           </div>
         )}
 
-        {/* Footer Navigation Buttons */}
+        {/* Navigation Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-100">
           {step > 1 ? (
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={() => setStep((p) => Math.max(p - 1, 1))}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back</span>
@@ -414,11 +462,21 @@ export const Sell: React.FC = () => {
           ) : (
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={handlePublish}
-              className="bg-[#1b7a53] hover:bg-[#156343] text-white px-6 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+              className="bg-[#1b7a53] hover:bg-[#156343] text-white px-6 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
-              <Sparkles className="w-4 h-4" />
-              <span>Publish Listing</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving to Database...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  <span>Publish Listing</span>
+                </>
+              )}
             </button>
           )}
         </div>

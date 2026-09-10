@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 import { MOCK_PRODUCTS } from '../data/mockData';
 import { ProductCard } from '../components/marketplace/ProductCard';
 import { ProductCardSkeleton } from '../components/ui/Skeletons';
 import { SlidersHorizontal, ArrowUpDown, X, Filter, RotateCcw } from 'lucide-react';
+import type { ProductItem } from '../types/marketplace';
 
 const CATEGORIES = ['All', 'Clothing', 'Furniture', 'Gaming', 'Electronics', 'Books'];
 const CONDITIONS = ['All Conditions', 'Brand New', 'Like New', 'Good', 'Fair'];
@@ -18,28 +20,90 @@ export const Explore: React.FC = () => {
   const [selectedLocation, setSelectedLocation] = useState('All Nepal');
   const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc'>('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  
+  const [products, setProducts] = useState<ProductItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Simulate ultra-fast API fetch delay when filters change
   useEffect(() => {
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 450);
-    return () => clearTimeout(timer);
-  }, [activeCategory, selectedCondition, selectedLocation, sortBy, searchQuery]);
+    const fetchListings = async () => {
+      setIsLoading(true);
 
-  const filteredProducts = MOCK_PRODUCTS.filter((item) => {
-    if (activeCategory !== 'All' && item.category.toLowerCase() !== activeCategory.toLowerCase()) return false;
-    if (selectedCondition !== 'All Conditions' && item.condition !== selectedCondition) return false;
-    if (selectedLocation !== 'All Nepal' && !item.location.toLowerCase().includes(selectedLocation.toLowerCase())) return false;
-    if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  }).sort((a, b) => {
-    if (sortBy === 'price_asc') return a.price - b.price;
-    if (sortBy === 'price_desc') return b.price - a.price;
-    return 0;
-  });
+      try {
+        let query = supabase
+          .from('listings')
+          .select(`
+            id,
+            title,
+            category_id,
+            price,
+            original_price,
+            condition,
+            location,
+            images,
+            created_at,
+            seller:profiles(first_name, surname, rating)
+          `)
+          .eq('status', 'active');
+
+        if (activeCategory !== 'All') {
+          query = query.eq('category_id', activeCategory.toLowerCase());
+        }
+        if (selectedCondition !== 'All Conditions') {
+          query = query.eq('condition', selectedCondition);
+        }
+        if (selectedLocation !== 'All Nepal') {
+          query = query.ilike('location', `%${selectedLocation}%`);
+        }
+        if (searchQuery) {
+          query = query.ilike('title', `%${searchQuery}%`);
+        }
+
+        if (sortBy === 'price_asc') {
+          query = query.order('price', { ascending: true });
+        } else if (sortBy === 'price_desc') {
+          query = query.order('price', { ascending: false });
+        } else {
+          query = query.order('created_at', { ascending: false });
+        }
+
+        const { data, error } = await query;
+
+        if (error || !data || data.length === 0) {
+          // Fallback to local mock data filtered
+          const fallback = MOCK_PRODUCTS.filter((item) => {
+            if (activeCategory !== 'All' && item.category.toLowerCase() !== activeCategory.toLowerCase()) return false;
+            if (selectedCondition !== 'All Conditions' && item.condition !== selectedCondition) return false;
+            if (selectedLocation !== 'All Nepal' && !item.location.toLowerCase().includes(selectedLocation.toLowerCase())) return false;
+            if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            return true;
+          });
+          setProducts(fallback);
+        } else {
+          const mapped: ProductItem[] = data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            price: Number(item.price),
+            originalPrice: item.original_price ? Number(item.original_price) : undefined,
+            condition: item.condition,
+            category: item.category_id,
+            location: item.location,
+            sellerName: item.seller ? `${item.seller.first_name} ${item.seller.surname}` : 'Verified Seller',
+            sellerRating: item.seller?.rating ? Number(item.seller.rating) : 5.0,
+            image: item.images?.[0] || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=400&q=80',
+            timeAgo: 'Recently',
+            isVerified: true,
+          }));
+          setProducts(mapped);
+        }
+      } catch (err) {
+        setProducts(MOCK_PRODUCTS);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchListings();
+  }, [activeCategory, selectedCondition, selectedLocation, sortBy, searchQuery]);
 
   return (
     <div className="space-y-6 py-4">
@@ -150,7 +214,7 @@ export const Explore: React.FC = () => {
                 <ProductCardSkeleton key={idx} />
               ))}
             </div>
-          ) : filteredProducts.length === 0 ? (
+          ) : products.length === 0 ? (
             <div className="bg-white border border-gray-200 rounded-3xl p-16 text-center space-y-4 shadow-2xs">
               <div className="w-14 h-14 rounded-2xl bg-gray-50 text-gray-400 flex items-center justify-center mx-auto">
                 <Filter className="w-7 h-7" />
@@ -158,7 +222,7 @@ export const Explore: React.FC = () => {
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-gray-900">No matching items found</h3>
                 <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                  We couldn't find items matching your current filters. Try resetting to explore all products.
+                  Try clearing your filters or search terms.
                 </p>
               </div>
               <button
@@ -175,7 +239,7 @@ export const Explore: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredProducts.map((item) => (
+              {products.map((item) => (
                 <ProductCard key={item.id} product={item} />
               ))}
             </div>
@@ -220,7 +284,7 @@ export const Explore: React.FC = () => {
               onClick={() => setIsMobileFilterOpen(false)}
               className="w-full bg-[#1b7a53] text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer"
             >
-              Apply Filters ({filteredProducts.length})
+              Apply Filters ({products.length})
             </button>
           </div>
         </div>
