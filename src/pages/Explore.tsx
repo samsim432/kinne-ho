@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../data/mockData';
 import { ProductCard } from '../components/marketplace/ProductCard';
-import { CategoryType, ConditionType } from '../types/marketplace';
+import type { CategoryType, ConditionType } from '../types/marketplace';
 
 const CATEGORIES: CategoryType[] = ['Clothing', 'Furniture', 'Gaming', 'Electronics', 'Books'];
 const CONDITIONS: ConditionType[] = ['New', 'Like New', 'Good', 'Fair', 'Poor'];
@@ -13,11 +13,22 @@ export const Explore: React.FC = () => {
 
   const selectedCategory = searchParams.get('category') || 'All';
   const searchQuery = searchParams.get('q') || '';
+  const locationParam = searchParams.get('location') || '';
+
   const [selectedConditions, setSelectedConditions] = useState<ConditionType[]>([]);
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>(
+    locationParam ? [locationParam] : []
+  );
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('newest');
+
+  // Sync state if URL location query changes
+  useEffect(() => {
+    if (locationParam && !selectedLocations.includes(locationParam)) {
+      setSelectedLocations([locationParam]);
+    }
+  }, [locationParam]);
 
   const handleCategoryChange = (cat: string) => {
     if (cat === 'All') {
@@ -208,7 +219,7 @@ export const Explore: React.FC = () => {
               <p className="text-xs text-gray-500">Try adjusting your category, price range, or location filters.</p>
               <button
                 onClick={handleReset}
-                className="bg-[#1b7a53] text-white text-xs font-medium px-4 py-2 rounded-lg"
+                className="bg-[#1b7a53] text-white text-xs font-medium px-4 py-2 rounded-lg cursor-pointer"
               >
                 Clear all filters
               </button>

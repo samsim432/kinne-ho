@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Heart, Star } from 'lucide-react';
-import { ProductItem } from '../../types/marketplace';
+import type { ProductItem } from '../../types/marketplace';
 
 interface ProductCardProps {
   product: ProductItem;
@@ -24,7 +24,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
         <img
           src={product.image}
           alt={product.title}
-          className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           loading="lazy"
         />
 

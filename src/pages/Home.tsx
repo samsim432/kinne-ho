@@ -1,8 +1,8 @@
 import React from 'react';
 import { HeroSlideshow } from '../components/home/HeroSlideshow';
 import { CategorySection } from '../components/home/CategorySection';
-import { ProductCard } from '../components/marketplace/ProductCard';
-import { MOCK_PRODUCTS } from '../data/mockData';
+import { NearYouSection } from '../components/home/NearYouSection';
+import { TrustSection } from '../components/home/TrustSection';
 import { Search, Sparkles, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -90,30 +90,14 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* 5 Places to Start (Categories Section) */}
+      {/* Categories Navigator */}
       <CategorySection />
 
-      {/* Recently Listed Preview */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Recently Listed</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Fresh items from sellers near you.</p>
-          </div>
-          <button
-            onClick={() => navigate('/explore')}
-            className="text-sm font-medium text-[#1b7a53] hover:text-[#156343] transition-colors"
-          >
-            View all
-          </button>
-        </div>
+      {/* Popular Near You */}
+      <NearYouSection />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-          {MOCK_PRODUCTS.slice(0, 4).map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
+      {/* Trust & Pre-Footer Banner */}
+      <TrustSection />
     </div>
   );
 };
