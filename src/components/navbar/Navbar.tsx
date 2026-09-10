@@ -14,11 +14,14 @@ import {
   Bell,
   Menu,
   X,
-  HelpCircle
+  Settings,
+  ShieldAlert
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMarketplace } from '../../context/MarketplaceContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
+import { EditProfileModal } from '../profile/EditProfileModal';
 
 const CATEGORIES = [
   { name: 'Clothing', icon: '👕', slug: 'clothing' },
@@ -30,13 +33,15 @@ const CATEGORIES = [
 
 export const Navbar: React.FC = () => {
   const navigate = useNavigate();
-  const { setIsSearchOpen, favorites } = useMarketplace();
+  const { user, profile, signOut } = useAuth();
+  const { setIsSearchOpen, favorites, showToast } = useMarketplace();
   const { language, setLanguage, t } = useLanguage();
   
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   const categoriesRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -69,19 +74,33 @@ export const Navbar: React.FC = () => {
     navigate(path);
   };
 
+  const handleSignOut = async () => {
+    setIsProfileOpen(false);
+    setIsMobileMenuOpen(false);
+    await signOut();
+    showToast('Signed Out', 'You have been signed out safely.', 'info');
+    navigate('/');
+  };
+
+  // Real display names from Supabase
+  const displayName = profile 
+    ? `${profile.first_name} ${profile.surname}`.trim() || 'Kinne Ho User'
+    : user?.email?.split('@')[0] || 'Guest User';
+  const displayEmail = profile?.email || user?.email || 'No email attached';
+
   return (
     <>
       <header className="w-full bg-white border-b border-gray-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           
-          {/* Left: Brand */}
+          {/* Left: Brand Logo */}
           <div className="flex items-center gap-8 shrink-0">
             <Link to="/" className="flex flex-col cursor-pointer leading-tight">
               <span className="font-extrabold text-xl text-[#111827] tracking-tight">Kinne Ho?</span>
               <span className="text-[11px] text-[#1b7a53] font-medium">किन्ने हो?</span>
             </Link>
 
-            {/* Desktop Nav */}
+            {/* Desktop Navigation Links */}
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
               <Link to="/explore" className="hover:text-gray-900 transition-colors">
                 {t.explore}
@@ -129,7 +148,7 @@ export const Navbar: React.FC = () => {
             </nav>
           </div>
 
-          {/* Center: Command Palette Trigger (Desktop only) */}
+          {/* Center: Command Palette / Search Trigger */}
           <div className="flex-1 max-w-md hidden md:block">
             <button
               onClick={() => setIsSearchOpen(true)}
@@ -147,6 +166,8 @@ export const Navbar: React.FC = () => {
 
           {/* Right: Desktop Controls */}
           <div className="hidden md:flex items-center gap-3">
+            
+            {/* Language Switcher */}
             <div className="flex items-center bg-gray-100 p-0.5 rounded-lg text-xs font-bold">
               <button
                 onClick={() => setLanguage('en')}
@@ -166,6 +187,7 @@ export const Navbar: React.FC = () => {
               </button>
             </div>
 
+            {/* Notifications */}
             <div className="relative" ref={notifRef}>
               <button
                 onClick={() => {
@@ -198,7 +220,7 @@ export const Navbar: React.FC = () => {
                           <h4 className="font-bold text-gray-900 text-xs truncate">Counter Offer: Rs. 46,000</h4>
                           <span className="text-[10px] text-gray-400 shrink-0">10m ago</span>
                         </div>
-                        <p className="text-[11px] text-gray-500 mt-0.5">Samir countered your offer on iPhone 13.</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">Counter offer received on your listing.</p>
                       </div>
                     </Link>
                   </div>
@@ -218,6 +240,7 @@ export const Navbar: React.FC = () => {
               <span className="absolute top-1 right-1 w-2 h-2 bg-[#1b7a53] rounded-full"></span>
             </Link>
 
+            {/* Profile Dropdown Menu */}
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => {
@@ -232,44 +255,90 @@ export const Navbar: React.FC = () => {
               </button>
 
               {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-50 text-xs">
-                  <div className="px-3.5 py-2 border-b border-gray-100">
-                    <p className="font-bold text-gray-900">Samir Simkhada</p>
-                    <p className="text-gray-500 text-[11px] truncate">samir@example.com</p>
+                <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-2xl shadow-xl py-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  
+                  {/* Real Dynamic Name & Email from Supabase */}
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                    <p className="font-bold text-gray-900 text-sm truncate">{displayName}</p>
+                    <p className="text-gray-500 text-[11px] truncate mt-0.5">{displayEmail}</p>
+                    {profile && (
+                      <span className="inline-block mt-1 text-[10px] font-bold text-[#1b7a53] bg-emerald-50 px-2 py-0.2 rounded-full border border-emerald-200">
+                        Balance: Rs. {Number(profile.wallet_balance || 0).toLocaleString()}
+                      </span>
+                    )}
                   </div>
 
-                  <Link to="/profile/Samir%20Simkhada" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-gray-700 hover:bg-gray-50 font-medium">
-                    <User className="w-4 h-4 text-gray-400" />
-                    <span>Public Profile</span>
-                  </Link>
+                  {user ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          setIsProfileOpen(false);
+                          setIsEditProfileOpen(true);
+                        }}
+                        className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-[#1b7a53] font-medium cursor-pointer"
+                      >
+                        <Settings className="w-4 h-4 text-gray-400" />
+                        <span>Edit Profile</span>
+                      </button>
 
-                  <Link to="/wallet" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-gray-700 hover:bg-gray-50 font-medium">
-                    <Wallet className="w-4 h-4 text-gray-400" />
-                    <span>Wallet & Escrow</span>
-                  </Link>
+                      <Link
+                        to={`/profile/${encodeURIComponent(displayName)}`}
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-[#1b7a53] font-medium"
+                      >
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span>Public Profile</span>
+                      </Link>
 
-                  <Link to="/my-listings" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-gray-700 hover:bg-gray-50 font-medium">
-                    <Package className="w-4 h-4 text-gray-400" />
-                    <span>My Listings</span>
-                  </Link>
+                      <Link
+                        to="/wallet"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-[#1b7a53] font-medium"
+                      >
+                        <Wallet className="w-4 h-4 text-gray-400" />
+                        <span>Wallet & Escrow</span>
+                      </Link>
 
-                  <Link to="/admin" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-red-700 hover:bg-red-50 font-bold">
-                    <ShieldCheck className="w-4 h-4 text-red-600" />
-                    <span>Admin Moderation</span>
-                  </Link>
+                      <Link
+                        to="/my-listings"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-[#1b7a53] font-medium"
+                      >
+                        <Package className="w-4 h-4 text-gray-400" />
+                        <span>My Listings</span>
+                      </Link>
 
-                  <div className="border-t border-gray-100 my-1"></div>
+                      <Link
+                        to="/admin"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-red-700 hover:bg-red-50 font-bold"
+                      >
+                        <ShieldAlert className="w-4 h-4 text-red-600" />
+                        <span>Admin Moderation</span>
+                      </Link>
 
-                  <button
-                    onClick={() => {
-                      setIsProfileOpen(false);
-                      navigate('/auth');
-                    }}
-                    className="w-full text-left flex items-center gap-2.5 px-3.5 py-2 text-red-600 hover:bg-red-50 font-medium cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Log Out</span>
-                  </button>
+                      <div className="border-t border-gray-100 my-1"></div>
+
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-red-600 hover:bg-red-50 font-semibold cursor-pointer"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Log Out</span>
+                      </button>
+                    </>
+                  ) : (
+                    <div className="p-2">
+                      <Link
+                        to="/auth"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="w-full flex items-center justify-center gap-2 bg-[#1b7a53] hover:bg-[#156343] text-white font-bold py-2 rounded-xl transition-colors text-xs"
+                      >
+                        <LogIn className="w-4 h-4" />
+                        <span>Sign In / Create Account</span>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -283,7 +352,7 @@ export const Navbar: React.FC = () => {
             </button>
           </div>
 
-          {/* Right: Mobile View Actions */}
+          {/* Right: Mobile Controls */}
           <div className="flex md:hidden items-center gap-3">
             <button
               onClick={() => setIsSearchOpen(true)}
@@ -312,12 +381,10 @@ export const Navbar: React.FC = () => {
         </div>
       </header>
 
-      {/* Mobile Slide-Over Drawer */}
+      {/* Mobile Drawer */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex bg-black/40 backdrop-blur-xs md:hidden">
           <div className="bg-white w-4/5 max-w-sm h-full flex flex-col justify-between ml-auto shadow-2xl animate-in slide-in-from-right duration-200">
-            
-            {/* Drawer Header */}
             <div>
               <div className="p-5 border-b border-gray-100 flex items-center justify-between">
                 <div className="flex flex-col leading-tight">
@@ -329,14 +396,31 @@ export const Navbar: React.FC = () => {
 
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-8 h-8 rounded-full border border-gray-300 text-gray-500 flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors"
+                  className="w-8 h-8 rounded-full border border-gray-300 text-gray-500 flex items-center justify-center cursor-pointer hover:bg-gray-100"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Main Navigation Links */}
+              {/* User Bar in Mobile Drawer */}
+              <div className="px-5 py-3 bg-gray-50 border-b border-gray-100">
+                <p className="font-bold text-gray-900 text-xs truncate">{displayName}</p>
+                <p className="text-gray-500 text-[10px] truncate">{displayEmail}</p>
+              </div>
+
               <div className="p-4 space-y-1 text-sm font-semibold text-gray-800">
+                {user && (
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setIsEditProfileOpen(true);
+                    }}
+                    className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer text-[#1b7a53] font-bold"
+                  >
+                    Edit Profile
+                  </button>
+                )}
+
                 <button
                   onClick={() => handleMobileNav('/explore')}
                   className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
@@ -376,39 +460,27 @@ export const Navbar: React.FC = () => {
                   onClick={() => handleMobileNav('/safety')}
                   className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
                 >
-                  How it works
-                </button>
-
-                <button
-                  onClick={() => handleMobileNav('/safety')}
-                  className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
-                >
                   Safety
                 </button>
 
-                {/* CATEGORIES Section */}
-                <div className="pt-4 mt-2 border-t border-gray-100">
-                  <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-4 block mb-2">
-                    CATEGORIES
-                  </span>
-
-                  <div className="space-y-0.5">
-                    {CATEGORIES.map((cat) => (
-                      <button
-                        key={cat.slug}
-                        onClick={() => handleCategorySelect(cat.slug)}
-                        className="w-full text-left flex items-center gap-3 px-4 py-2 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-[#1b7a53] transition-colors cursor-pointer font-medium"
-                      >
-                        <span className="text-base">{cat.icon}</span>
-                        <span>{cat.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                {user ? (
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full text-left px-4 py-2.5 rounded-xl text-red-600 hover:bg-red-50 font-bold transition-colors cursor-pointer"
+                  >
+                    Log Out
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleMobileNav('/auth')}
+                    className="w-full text-left px-4 py-2.5 rounded-xl text-[#1b7a53] font-bold hover:bg-emerald-50 transition-colors cursor-pointer"
+                  >
+                    Sign In / Register
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Language switch footer in Drawer */}
             <div className="p-4 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-gray-500">
               <span>Language / भाषा</span>
               <div className="flex bg-gray-100 p-0.5 rounded-lg">
@@ -434,6 +506,12 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Edit Profile Modal Trigger */}
+      <EditProfileModal
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+      />
     </>
   );
 };
