@@ -3,37 +3,45 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../data/mockData';
 import { ProductCard } from '../components/marketplace/ProductCard';
 import { MakeOfferModal } from '../components/offers/MakeOfferModal';
+import { useMarketplace } from '../context/MarketplaceContext';
 import { 
   Heart, 
   Eye, 
   MapPin, 
-  Clock, 
   ShieldCheck, 
   Star, 
   CheckCircle2, 
-  MessageSquare,
-  Flag,
-  ArrowRight
+  MessageSquare, 
+  Flag, 
+  ArrowRight,
+  Maximize2,
+  X,
+  TrendingDown,
+  Sparkles
 } from 'lucide-react';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [isOfferOpen, setIsOfferOpen] = useState(false);
-  const [isFav, setIsFav] = useState(false);
+  const { isFavorite, toggleFavorite } = useMarketplace();
 
-  // Negotiation state demo
-  const [hasOffer, setHasOffer] = useState(true);
-  const [userOffer, setUserOffer] = useState(44000);
-  const [sellerCounter, setSellerCounter] = useState(46000);
+  const [isOfferOpen, setIsOfferOpen] = useState(false);
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
   const product = MOCK_PRODUCTS.find((p) => p.id === id) || MOCK_PRODUCTS[0];
+  const favorited = isFavorite(product.id);
+
   const similarProducts = MOCK_PRODUCTS.filter(
     (p) => p.category === product.category && p.id !== product.id
   ).slice(0, 4);
 
+  // Negotiation state
+  const [hasOffer, setHasOffer] = useState(true);
+  const [userOffer, setUserOffer] = useState(44000);
+  const [sellerCounter, setSellerCounter] = useState(46000);
+
   return (
-    <div className="space-y-12 py-4">
+    <div className="space-y-12 py-4 max-w-7xl mx-auto">
       
       {/* Breadcrumbs */}
       <nav className="text-xs text-gray-500 flex items-center gap-1.5">
@@ -44,23 +52,31 @@ export const ProductDetails: React.FC = () => {
         </Link>
       </nav>
 
-      {/* Main Grid: Images + Buy Engine */}
+      {/* Main Product Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
         
-        {/* Left Column: Photos */}
+        {/* Left Column: Photos with Lightbox Trigger */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="relative aspect-4/3 rounded-2xl overflow-hidden bg-gray-100 border border-gray-200">
+          <div 
+            onClick={() => setLightboxImg(product.image)}
+            className="relative aspect-4/3 rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 cursor-zoom-in group"
+          >
             <img
               src={product.image}
               alt={product.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
             />
+            <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-xs text-white p-2 rounded-xl flex items-center gap-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span>Click to enlarge</span>
+            </div>
           </div>
 
           <div className="flex gap-3">
             {[product.image, 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=300&q=80'].map((img, idx) => (
               <div
                 key={idx}
+                onClick={() => setLightboxImg(img)}
                 className="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 cursor-pointer hover:opacity-80 transition-opacity"
               >
                 <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
@@ -79,15 +95,15 @@ export const ProductDetails: React.FC = () => {
                 {product.title}
               </h1>
               <button
-                onClick={() => setIsFav(!isFav)}
+                onClick={() => toggleFavorite(product.id)}
                 className="text-gray-400 hover:text-red-500 p-1 transition-colors cursor-pointer"
                 title="Save"
               >
-                <Heart className={`w-5 h-5 ${isFav ? 'fill-red-500 text-red-500' : ''}`} />
+                <Heart className={`w-5 h-5 ${favorited ? 'fill-red-500 text-red-500' : ''}`} />
               </button>
             </div>
 
-            {/* Price Row */}
+            {/* Price */}
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold text-gray-900">
                 Rs. {product.price.toLocaleString()}
@@ -104,7 +120,7 @@ export const ProductDetails: React.FC = () => {
               )}
             </div>
 
-            {/* Badges / Meta */}
+            {/* Badges */}
             <div className="flex items-center flex-wrap gap-2 text-xs text-gray-500 pt-1">
               <span className="bg-[#1b7a53]/10 text-[#1b7a53] px-2 py-0.5 rounded font-medium">
                 {product.condition}
@@ -120,32 +136,41 @@ export const ProductDetails: React.FC = () => {
                 40 views
               </span>
               <span>•</span>
-              <span className="flex items-center gap-1">
-                <Heart className="w-3.5 h-3.5" />
-                3
-              </span>
-              <span>•</span>
               <span>Listed {product.timeAgo}</span>
             </div>
           </div>
 
+          {/* Nepal Bargain / Fair Price Meter */}
+          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3.5 space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-bold text-gray-900">
+              <span className="flex items-center gap-1 text-[#1b7a53]">
+                <Sparkles className="w-3.5 h-3.5" />
+                Kinne Ho? Fair Price Meter
+              </span>
+              <span className="text-[#1b7a53]">Great Deal</span>
+            </div>
+            <p className="text-[11px] text-gray-600">
+              Similar {product.title.split(' ')[0]}s in Kathmandu valley sell between <strong>Rs. {Math.round(product.price * 0.95).toLocaleString()}</strong> – <strong>Rs. {Math.round(product.price * 1.1).toLocaleString()}</strong>.
+            </p>
+          </div>
+
           {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-2 gap-3 pt-1">
             <button
               onClick={() => setIsOfferOpen(true)}
               className="bg-[#1b7a53] hover:bg-[#156343] text-white font-semibold py-2.5 rounded-xl transition-colors cursor-pointer text-sm shadow-2xs text-center"
             >
               Make Offer
             </button>
-<button
-  onClick={() => navigate(`/checkout/${product.id}`)}
-  className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-800 font-semibold py-2.5 rounded-xl transition-colors cursor-pointer text-sm shadow-2xs text-center"
->
-  Buy Now
-</button>
+            <button
+              onClick={() => navigate(`/checkout/${product.id}`)}
+              className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-800 font-semibold py-2.5 rounded-xl transition-colors cursor-pointer text-sm shadow-2xs text-center"
+            >
+              Buy Now
+            </button>
           </div>
 
-          {/* Direct Message Seller Button */}
+          {/* Message Seller */}
           <button
             onClick={() => navigate(`/messages?seller=${encodeURIComponent(product.sellerName)}&productId=${product.id}`)}
             className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-gray-700 hover:text-gray-900 py-1 cursor-pointer"
@@ -169,10 +194,10 @@ export const ProductDetails: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 pt-1">
                 <button
-                  onClick={() => alert(`Accepted Rs. ${sellerCounter}`)}
+                  onClick={() => navigate(`/checkout/${product.id}`)}
                   className="bg-[#1b7a53] text-white text-xs font-semibold px-4 py-1.5 rounded-lg hover:bg-[#156343] transition-colors cursor-pointer"
                 >
-                  Accept
+                  Accept & Pay Escrow
                 </button>
                 <button
                   onClick={() => setIsOfferOpen(true)}
@@ -184,7 +209,7 @@ export const ProductDetails: React.FC = () => {
             </div>
           )}
 
-          {/* Clickable Seller Card linking to User Profile */}
+          {/* Seller Profile Card */}
           <div className="space-y-2">
             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Seller</span>
             <div 
@@ -216,41 +241,24 @@ export const ProductDetails: React.FC = () => {
               </div>
               <ArrowRight className="w-4 h-4 text-gray-400 group-hover:translate-x-0.5 group-hover:text-gray-700 transition-all" />
             </div>
-            <p className="text-[11px] text-gray-400 pl-1">
-              ✓ Verified profile · 32 completed sales
-            </p>
           </div>
 
-          {/* Stay Safe Card */}
+          {/* Escrow Guarantee */}
           <div className="bg-[#f0f9f5] border border-[#d2efe2] rounded-2xl p-4 space-y-1.5 text-xs text-gray-700">
             <div className="flex items-center gap-1.5 font-bold text-gray-900">
               <ShieldCheck className="w-4 h-4 text-[#1b7a53]" />
-              <span>Stay safe</span>
+              <span>Kinne Ho? Escrow Protection</span>
             </div>
             <p className="text-gray-600 leading-relaxed">
-              Keep communication and transactions on Kinne Ho? whenever possible. Check the item before paying and meet in a public place.
+              Never pay advance cash to strangers. Your money stays locked until you receive the item and verify its condition.
             </p>
-            <Link to="/safety" className="text-[#1b7a53] font-semibold hover:underline block pt-1">
-              Read our safety guide
-            </Link>
           </div>
-
-          {/* Report Link */}
-          <button 
-            onClick={() => alert('Report dialog opened')}
-            className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors cursor-pointer pt-1"
-          >
-            <Flag className="w-3.5 h-3.5" />
-            <span>Report listing</span>
-          </button>
 
         </div>
       </div>
 
       {/* 2-Column Section: Item Details Table vs Description */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 pt-10 border-t border-gray-200">
-        
-        {/* Left: Item details table */}
         <div className="lg:col-span-6 space-y-4">
           <h3 className="text-lg font-bold text-gray-900">Item details</h3>
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100 text-xs">
@@ -263,62 +271,43 @@ export const ProductDetails: React.FC = () => {
               <span className="text-gray-900 font-semibold">iPhone 13</span>
             </div>
             <div className="grid grid-cols-2 p-3">
-              <span className="text-gray-500 font-medium">Storage</span>
-              <span className="text-gray-900 font-semibold">128GB</span>
-            </div>
-            <div className="grid grid-cols-2 p-3">
-              <span className="text-gray-500 font-medium">Battery health</span>
-              <span className="text-gray-900 font-semibold">87%</span>
+              <span className="text-gray-500 font-medium">Condition</span>
+              <span className="text-gray-900 font-semibold">{product.condition}</span>
             </div>
             <div className="grid grid-cols-2 p-3">
               <span className="text-gray-500 font-medium">Warranty</span>
               <span className="text-gray-900 font-semibold">Expired</span>
             </div>
-            <div className="grid grid-cols-2 p-3">
-              <span className="text-gray-500 font-medium">Condition</span>
-              <span className="text-gray-900 font-semibold">{product.condition}</span>
-            </div>
           </div>
         </div>
 
-        {/* Right: Description */}
         <div className="lg:col-span-6 space-y-4">
           <h3 className="text-lg font-bold text-gray-900">Description</h3>
           <p className="text-xs sm:text-sm text-gray-600 leading-relaxed bg-white border border-gray-200 rounded-xl p-4">
-            Used for about two years as my daily phone. Screen has no cracks, small scuff on the bottom left corner of the frame. Battery still comfortably lasts a full day. Comes with a charging cable and a clear case, original box included.
+            Used for about two years as daily phone. Screen is scratchless with screen protector applied since day 1. Battery still comfortably lasts a full day. Comes with charging cable and transparent case.
           </p>
         </div>
-
       </div>
 
-      {/* Similar items */}
-      <section className="space-y-4 pt-8 border-t border-gray-200">
-        <div className="flex items-end justify-between">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900 tracking-tight">Similar items</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Other listings in this category.</p>
-          </div>
-          <Link
-            to={`/explore?category=${product.category}`}
-            className="text-xs font-semibold text-[#1b7a53] hover:text-[#156343] transition-colors"
+      {/* Lightbox Modal */}
+      {lightboxImg && (
+        <div
+          onClick={() => setLightboxImg(null)}
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          <button
+            onClick={() => setLightboxImg(null)}
+            className="absolute top-5 right-5 text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10"
           >
-            See all →
-          </Link>
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={lightboxImg}
+            alt="Enlarged view"
+            className="max-w-4xl max-h-[85vh] w-auto h-auto rounded-xl object-contain shadow-2xl animate-in zoom-in-95 duration-150"
+          />
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {similarProducts.map((item) => (
-            <ProductCard
-              key={item.id}
-              product={item}
-              onClick={() => {
-                navigate(`/product/${item.id}`);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            />
-          ))}
-        </div>
-      </section>
+      )}
 
       {/* Offer Modal */}
       <MakeOfferModal

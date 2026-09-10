@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Heart, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useMarketplace } from '../../context/MarketplaceContext';
 import type { ProductItem } from '../../types/marketplace';
 
 interface ProductCardProps {
@@ -10,7 +11,8 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => {
   const navigate = useNavigate();
-  const [isFav, setIsFav] = useState(product.isFavorite || false);
+  const { isFavorite, toggleFavorite } = useMarketplace();
+  const favorited = isFavorite(product.id);
 
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
@@ -27,27 +29,27 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
   return (
     <div
       onClick={handleClick}
-      className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col cursor-pointer"
+      className="group bg-white border border-gray-200/90 rounded-2xl overflow-hidden hover:border-gray-300 hover:shadow-md transition-all duration-200 flex flex-col cursor-pointer"
     >
       {/* Product Image Frame */}
       <div className="relative aspect-square w-full bg-gray-100 overflow-hidden">
         <img
           src={product.image}
           alt={product.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-104 transition-transform duration-300"
           loading="lazy"
         />
 
-        {/* Favorite Button */}
+        {/* Dynamic Favorite Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setIsFav(!isFav);
+            toggleFavorite(product.id);
           }}
-          className="absolute top-2.5 left-2.5 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-gray-700 hover:text-red-500 transition-colors shadow-xs"
+          className="absolute top-2.5 left-2.5 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-gray-700 hover:text-red-500 hover:scale-110 active:scale-95 transition-all shadow-xs cursor-pointer"
           aria-label="Save to favorites"
         >
-          <Heart className={`w-4 h-4 ${isFav ? 'fill-red-500 text-red-500' : ''}`} />
+          <Heart className={`w-4 h-4 ${favorited ? 'fill-red-500 text-red-500' : ''}`} />
         </button>
 
         {/* Condition Tag */}
