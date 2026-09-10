@@ -4,6 +4,8 @@ import { Navbar } from './components/navbar/Navbar';
 import { Footer } from './components/footer/Footer';
 import { Home } from './pages/Home';
 import { Explore } from './pages/Explore';
+import { ProductDetails } from './pages/ProductDetails';
+import { Sell } from './pages/Sell';
 
 export default function App() {
   return (
@@ -15,6 +17,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/explore" element={<Explore />} />
+            <Route path="/product/:id" element={<ProductDetails />} />
+            <Route path="/sell" element={<Sell />} />
           </Routes>
         </main>
 

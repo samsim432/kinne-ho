@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Heart, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { ProductItem } from '../../types/marketplace';
 
 interface ProductCardProps {
@@ -8,15 +9,24 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => {
+  const navigate = useNavigate();
   const [isFav, setIsFav] = useState(product.isFavorite || false);
 
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0;
 
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+    } else {
+      navigate(`/product/${product.id}`);
+    }
+  };
+
   return (
     <div
-      onClick={onClick}
+      onClick={handleClick}
       className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col cursor-pointer"
     >
       {/* Product Image Frame */}
