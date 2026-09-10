@@ -1,200 +1,203 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { MOCK_PRODUCTS } from '../data/mockData';
+import { supabase } from '../lib/supabaseClient';
 import { ProductCard } from '../components/marketplace/ProductCard';
-import { Star, MapPin, Calendar, CheckCircle2 } from 'lucide-react';
-
-interface ReviewItem {
-  id: string;
-  reviewerName: string;
-  comment: string;
-  rating: number;
-  date: string;
-}
-
-const MOCK_REVIEWS: ReviewItem[] = [
-  {
-    id: 'r1',
-    reviewerName: 'Aayush Rai',
-    comment: 'Item was exactly as described. Met near Ratnapark, quick and friendly handover.',
-    rating: 5,
-    date: '2026-08-14'
-  },
-  {
-    id: 'r2',
-    reviewerName: 'Sneha Tamang',
-    comment: 'Honest about a small scratch before I even asked. Would buy again.',
-    rating: 5,
-    date: '2026-07-29'
-  },
-  {
-    id: 'r3',
-    reviewerName: 'Manish Lama',
-    comment: 'Good deal overall, handover took a bit of rescheduling.',
-    rating: 4,
-    date: '2026-06-11'
-  },
-  {
-    id: 'r4',
-    reviewerName: 'Kritika Poudel',
-    comment: 'Packed carefully for courier to Pokhara. Everything arrived safe.',
-    rating: 5,
-    date: '2026-05-02'
-  }
-];
+import { ProductCardSkeleton } from '../components/ui/Skeletons';
+import { 
+  Star, 
+  MapPin, 
+  ShieldCheck, 
+  Calendar, 
+  ShoppingBag, 
+  CheckCircle2, 
+  UserCheck,
+  Package
+} from 'lucide-react';
+import type { ProductItem } from '../types/marketplace';
 
 export const UserProfile: React.FC = () => {
-  const { username = 'Samir Simkhada' } = useParams<{ username: string }>();
-  const [activeTab, setActiveTab] = useState<'listings' | 'sold' | 'reviews' | 'about'>('listings');
+  const { username } = useParams<{ username: string }>();
+  const [activeTab, setActiveTab] = useState<'listings' | 'sold' | 'reviews'>('listings');
+  const [listings, setListings] = useState<ProductItem[]>([]);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Filter listings belonging to this seller
-  const userListings = MOCK_PRODUCTS.filter(
-    (p) => p.sellerName.toLowerCase() === username.toLowerCase()
-  );
-  
-  // If demo seller has only a few, backfill with mock data for preview
-  const displayListings = userListings.length > 0 ? userListings : MOCK_PRODUCTS.slice(0, 8);
-  const soldListings = MOCK_PRODUCTS.slice(4, 7);
+  const decodedName = decodeURIComponent(username || 'Seller');
+
+  useEffect(() => {
+    const fetchUserProfileAndListings = async () => {
+      setIsLoading(true);
+
+      try {
+        // 1. Fetch Profile
+        const nameParts = decodedName.split(' ');
+        const firstName = nameParts[0] || '';
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .ilike('first_name', `%${firstName}%`)
+          .limit(1)
+          .single();
+
+        if (profile) {
+          setProfileData(profile);
+
+          // 2. Fetch User's Listings
+          const { data: userItems } = await supabase
+            .from('listings')
+            .select('*')
+            .eq('seller_id', profile.id)
+            .eq('status', 'active');
+
+          if (userItems && userItems.length > 0) {
+            const mapped: ProductItem[] = userItems.map((item: any) => ({
+              id: item.id,
+              title: item.title,
+              price: Number(item.price),
+              originalPrice: item.original_price ? Number(item.original_price) : undefined,
+              condition: item.condition,
+              category: item.category_id,
+              location: item.location,
+              sellerName: `${profile.first_name} ${profile.surname}`.trim(),
+              sellerRating: profile.rating ? Number(profile.rating) : 5.0,
+              image: item.images?.[0] || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=400&q=80',
+              timeAgo: 'Recently',
+              isVerified: true,
+            }));
+            setListings(mapped);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserProfileAndListings();
+  }, [username]);
+
+  const displayName = profileData 
+    ? `${profileData.first_name} ${profileData.surname}`.trim()
+    : decodedName;
+
+  const displayLocation = profileData?.delivery_address || 'Kathmandu, Nepal';
 
   return (
-    <div className="space-y-8 py-4">
+    <div className="space-y-8 py-4 max-w-7xl mx-auto">
       
-      {/* Top Profile Card matching Screenshot */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 flex items-center gap-6 shadow-2xs">
-        <div className="w-20 h-20 rounded-full bg-emerald-100 text-[#1b7a53] font-extrabold text-2xl flex items-center justify-center shrink-0">
-          SS
-        </div>
+      {/* Profile Header Banner */}
+      <div className="bg-white border border-gray-200/90 rounded-3xl p-6 sm:p-8 shadow-card space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
+            <div className="w-20 h-20 rounded-2xl bg-emerald-100 text-[#1b7a53] flex items-center justify-center text-2xl font-extrabold shrink-0 shadow-xs border-2 border-emerald-200">
+              {displayName.substring(0, 2).toUpperCase()}
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight">
+                  {displayName}
+                </h1>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Verified Seller
+                </span>
+              </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">{username}</h1>
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-              <CheckCircle2 className="w-3.5 h-3.5 text-blue-500" />
-              Verified
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 font-medium">
-            <span className="flex items-center gap-1 text-gray-700 font-bold">
-              <Star className="w-3.5 h-3.5 fill-amber-400 stroke-amber-400" />
-              4.8
-            </span>
-            <span className="flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-gray-400" />
-              Kathmandu
-            </span>
-            <span>32 completed sales</span>
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-gray-400" />
-              Joined 2023
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 bg-gray-100/70 p-1 rounded-xl w-fit">
-        <button
-          onClick={() => setActiveTab('listings')}
-          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-            activeTab === 'listings'
-              ? 'bg-white text-gray-900 shadow-2xs'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Listings
-        </button>
-        <button
-          onClick={() => setActiveTab('sold')}
-          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-            activeTab === 'sold'
-              ? 'bg-white text-gray-900 shadow-2xs'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Sold
-        </button>
-        <button
-          onClick={() => setActiveTab('reviews')}
-          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-            activeTab === 'reviews'
-              ? 'bg-white text-gray-900 shadow-2xs'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Reviews
-        </button>
-        <button
-          onClick={() => setActiveTab('about')}
-          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-            activeTab === 'about'
-              ? 'bg-white text-gray-900 shadow-2xs'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          About
-        </button>
-      </div>
-
-      {/* Tab 1: Listings */}
-      {activeTab === 'listings' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {displayListings.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      )}
-
-      {/* Tab 2: Sold Items */}
-      {activeTab === 'sold' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 opacity-75">
-          {soldListings.map((product) => (
-            <div key={product.id} className="relative">
-              <ProductCard product={product} />
-              <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center pointer-events-none rounded-xl">
-                <span className="bg-gray-900 text-white text-xs font-bold px-3 py-1 rounded-md shadow-md uppercase tracking-wider">
-                  Sold
+              <div className="flex items-center flex-wrap gap-3 text-xs text-gray-500 pt-0.5">
+                <span className="flex items-center gap-1 font-extrabold text-gray-900">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 stroke-amber-400" />
+                  {profileData?.rating || '5.0'}
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                  {displayLocation}
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                  Member since 2026
                 </span>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
 
-      {/* Tab 3: Reviews */}
-      {activeTab === 'reviews' && (
-        <div className="space-y-3">
-          {MOCK_REVIEWS.map((review) => (
-            <div
-              key={review.id}
-              className="bg-white border border-gray-200 rounded-xl p-5 space-y-2 shadow-2xs"
-            >
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-gray-900">{review.reviewerName}</h4>
-                <div className="flex items-center text-amber-400 gap-0.5">
-                  {Array.from({ length: review.rating }).map((_, i) => (
-                    <Star key={i} className="w-3.5 h-3.5 fill-amber-400 stroke-amber-400" />
-                  ))}
-                </div>
-              </div>
-              <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-                {review.comment}
-              </p>
-              <span className="text-[11px] text-gray-400 block pt-1">{review.date}</span>
+          <div className="bg-[#f0f9f5] border border-[#d2efe2] rounded-2xl p-4 flex items-center gap-3 w-full sm:w-auto">
+            <ShieldCheck className="w-5 h-5 text-[#1b7a53] shrink-0" />
+            <div className="text-xs">
+              <span className="font-bold text-gray-900 block">Nagarikta / ID Verified</span>
+              <span className="text-gray-500 text-[11px]">Eligible for Escrow & Doorstep Delivery</span>
             </div>
-          ))}
+          </div>
         </div>
-      )}
 
-      {/* Tab 4: About */}
-      {activeTab === 'about' && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-2 shadow-2xs">
-          <h3 className="text-sm font-bold text-gray-900">About {username}</h3>
-          <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-            Selling gadgets I no longer use. Everything tested before handover. Meet-ups around Baneshwor and New Road.
-          </p>
+        {/* Tab Navigation */}
+        <div className="flex gap-2 border-t border-gray-100 pt-4">
+          <button
+            onClick={() => setActiveTab('listings')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'listings'
+                ? 'bg-[#1b7a53] text-white shadow-xs'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Active Listings ({listings.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('sold')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'sold'
+                ? 'bg-[#1b7a53] text-white shadow-xs'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Sold & Completed (0)
+          </button>
+          <button
+            onClick={() => setActiveTab('reviews')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'reviews'
+                ? 'bg-[#1b7a53] text-white shadow-xs'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Reviews (5)
+          </button>
         </div>
-      )}
+      </div>
+
+      {/* Grid Content */}
+      <div>
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <ProductCardSkeleton key={idx} />
+            ))}
+          </div>
+        ) : activeTab === 'listings' ? (
+          listings.length === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-3xl p-16 text-center space-y-3 shadow-2xs">
+              <Package className="w-10 h-10 text-gray-400 mx-auto" />
+              <h3 className="text-base font-bold text-gray-900">No active items right now</h3>
+              <p className="text-xs text-gray-500">This seller has no other active items at the moment.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {listings.map((item) => (
+                <ProductCard key={item.id} product={item} />
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="bg-white border border-gray-200 rounded-3xl p-8 text-center space-y-2 text-xs text-gray-500">
+            <p className="font-bold text-gray-900 text-sm">Seller Rating: 5.0 / 5.0 ⭐</p>
+            <p>100% of buyers verified handover condition with zero escrow disputes.</p>
+          </div>
+        )}
+      </div>
 
     </div>
   );

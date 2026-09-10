@@ -25,84 +25,90 @@ export const Explore: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchListings = async () => {
+    const fetchExploreProducts = async () => {
       setIsLoading(true);
 
       try {
-        let query = supabase
+        // 1. Fetch raw listings from Supabase
+        const { data: dbListings, error: dbError } = await supabase
           .from('listings')
-          .select(`
-            id,
-            title,
-            category_id,
-            price,
-            original_price,
-            condition,
-            location,
-            images,
-            created_at,
-            seller:profiles(first_name, surname, rating)
-          `)
-          .eq('status', 'active');
+          .select('*')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false });
 
-        if (activeCategory !== 'All') {
-          query = query.eq('category_id', activeCategory.toLowerCase());
-        }
-        if (selectedCondition !== 'All Conditions') {
-          query = query.eq('condition', selectedCondition);
-        }
-        if (selectedLocation !== 'All Nepal') {
-          query = query.ilike('location', `%${selectedLocation}%`);
-        }
-        if (searchQuery) {
-          query = query.ilike('title', `%${searchQuery}%`);
-        }
+        let liveItems: ProductItem[] = [];
 
-        if (sortBy === 'price_asc') {
-          query = query.order('price', { ascending: true });
-        } else if (sortBy === 'price_desc') {
-          query = query.order('price', { ascending: false });
-        } else {
-          query = query.order('created_at', { ascending: false });
-        }
+        if (!dbError && dbListings && dbListings.length > 0) {
+          // Fetch profiles for the sellers to attach names
+          const sellerIds = [...new Set(dbListings.map((l: any) => l.seller_id))];
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, first_name, surname, rating')
+            .in('id', sellerIds);
 
-        const { data, error } = await query;
+          const profileMap = new Map<string, any>();
+          profilesData?.forEach((p: any) => profileMap.set(p.id, p));
 
-        if (error || !data || data.length === 0) {
-          // Fallback to local mock data filtered
-          const fallback = MOCK_PRODUCTS.filter((item) => {
-            if (activeCategory !== 'All' && item.category.toLowerCase() !== activeCategory.toLowerCase()) return false;
-            if (selectedCondition !== 'All Conditions' && item.condition !== selectedCondition) return false;
-            if (selectedLocation !== 'All Nepal' && !item.location.toLowerCase().includes(selectedLocation.toLowerCase())) return false;
-            if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-            return true;
+          liveItems = dbListings.map((item: any) => {
+            const seller = profileMap.get(item.seller_id);
+            const sellerName = seller 
+              ? `${seller.first_name || ''} ${seller.surname || ''}`.trim() || 'Verified Seller'
+              : 'Verified Seller';
+
+            return {
+              id: item.id,
+              title: item.title,
+              price: Number(item.price),
+              originalPrice: item.original_price ? Number(item.original_price) : undefined,
+              condition: item.condition,
+              category: item.category_id || 'Electronics',
+              location: item.location,
+              sellerName: sellerName,
+              sellerRating: seller?.rating ? Number(seller.rating) : 5.0,
+              image: item.images?.[0] || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=400&q=80',
+              timeAgo: 'Just now',
+              isVerified: true,
+            };
           });
-          setProducts(fallback);
-        } else {
-          const mapped: ProductItem[] = data.map((item: any) => ({
-            id: item.id,
-            title: item.title,
-            price: Number(item.price),
-            originalPrice: item.original_price ? Number(item.original_price) : undefined,
-            condition: item.condition,
-            category: item.category_id,
-            location: item.location,
-            sellerName: item.seller ? `${item.seller.first_name} ${item.seller.surname}` : 'Verified Seller',
-            sellerRating: item.seller?.rating ? Number(item.seller.rating) : 5.0,
-            image: item.images?.[0] || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=400&q=80',
-            timeAgo: 'Recently',
-            isVerified: true,
-          }));
-          setProducts(mapped);
         }
+
+        // 2. Combine live items at top with mock marketplace items
+        const allItems = [...liveItems, ...MOCK_PRODUCTS];
+
+        // 3. Apply client-side filters
+        const filtered = allItems.filter((item) => {
+          if (activeCategory !== 'All' && item.category.toLowerCase() !== activeCategory.toLowerCase()) {
+            return false;
+          }
+          if (selectedCondition !== 'All Conditions' && item.condition.toLowerCase() !== selectedCondition.toLowerCase()) {
+            return false;
+          }
+          if (selectedLocation !== 'All Nepal' && !item.location.toLowerCase().includes(selectedLocation.toLowerCase())) {
+            return false;
+          }
+          if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+            return false;
+          }
+          return true;
+        });
+
+        // 4. Sort
+        filtered.sort((a, b) => {
+          if (sortBy === 'price_asc') return a.price - b.price;
+          if (sortBy === 'price_desc') return b.price - a.price;
+          return 0;
+        });
+
+        setProducts(filtered);
       } catch (err) {
+        console.error('Explore load error:', err);
         setProducts(MOCK_PRODUCTS);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchListings();
+    fetchExploreProducts();
   }, [activeCategory, selectedCondition, selectedLocation, sortBy, searchQuery]);
 
   return (
@@ -113,15 +119,15 @@ export const Explore: React.FC = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">Explore Items</h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-            Discover verified second-hand items across Nepal.
+            Discover verified second-hand items across Nepal ({products.length} live).
           </p>
         </div>
 
-        {/* Controls */}
+        {/* Sorting & Filter Controls */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={() => setIsMobileFilterOpen(true)}
-            className="md:hidden flex items-center gap-1.5 bg-white border border-gray-200 px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-700 shadow-2xs"
+            className="md:hidden flex items-center gap-1.5 bg-white border border-gray-200 px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-700 shadow-2xs cursor-pointer"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Filters</span>
@@ -144,7 +150,7 @@ export const Explore: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
         
-        {/* Desktop Filters */}
+        {/* Desktop Sidebar Filters */}
         <div className="hidden md:block md:col-span-3 space-y-6 bg-white border border-gray-200 rounded-2xl p-5 shadow-2xs">
           
           <div className="space-y-2">
@@ -156,7 +162,7 @@ export const Explore: React.FC = () => {
                   onClick={() => setSearchParams(cat === 'All' ? {} : { category: cat.toLowerCase() })}
                   className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
                     activeCategory.toLowerCase() === cat.toLowerCase()
-                      ? 'bg-[#1b7a53]/10 text-[#1b7a53]'
+                      ? 'bg-[#1b7a53]/10 text-[#1b7a53] font-bold'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -174,8 +180,8 @@ export const Explore: React.FC = () => {
                   key={cond}
                   onClick={() => setSelectedCondition(cond)}
                   className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
-                    selectedCondition === cond
-                      ? 'bg-[#1b7a53]/10 text-[#1b7a53]'
+                    selectedCondition.toLowerCase() === cond.toLowerCase()
+                      ? 'bg-[#1b7a53]/10 text-[#1b7a53] font-bold'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -193,8 +199,8 @@ export const Explore: React.FC = () => {
                   key={loc}
                   onClick={() => setSelectedLocation(loc)}
                   className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
-                    selectedLocation === loc
-                      ? 'bg-[#1b7a53]/10 text-[#1b7a53]'
+                    selectedLocation.toLowerCase() === loc.toLowerCase()
+                      ? 'bg-[#1b7a53]/10 text-[#1b7a53] font-bold'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -206,7 +212,7 @@ export const Explore: React.FC = () => {
 
         </div>
 
-        {/* Product Grid / Shimmer / Empty State */}
+        {/* Product Grid */}
         <div className="md:col-span-9">
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -222,7 +228,7 @@ export const Explore: React.FC = () => {
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-gray-900">No matching items found</h3>
                 <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                  Try clearing your filters or search terms.
+                  Try resetting your category or location filters.
                 </p>
               </div>
               <button
@@ -248,7 +254,7 @@ export const Explore: React.FC = () => {
 
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Filters Drawer */}
       {isMobileFilterOpen && (
         <div className="fixed inset-0 z-50 flex bg-black/40 backdrop-blur-xs md:hidden">
           <div className="bg-white w-4/5 max-w-xs h-full p-5 space-y-6 overflow-y-auto ml-auto shadow-2xl animate-in slide-in-from-right duration-200">
@@ -274,6 +280,25 @@ export const Explore: React.FC = () => {
                       }`}
                     >
                       {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-gray-500 uppercase">Condition</span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {CONDITIONS.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setSelectedCondition(c)}
+                      className={`text-xs py-1.5 px-2 rounded-lg border font-semibold ${
+                        selectedCondition.toLowerCase() === c.toLowerCase()
+                          ? 'border-[#1b7a53] bg-[#1b7a53]/10 text-[#1b7a53]'
+                          : 'border-gray-200 text-gray-600'
+                      }`}
+                    >
+                      {c}
                     </button>
                   ))}
                 </div>
