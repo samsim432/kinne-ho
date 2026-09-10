@@ -1,11 +1,9 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MarketplaceProvider } from './context/MarketplaceContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { SearchModal } from './components/search/SearchModal';
 import { Navbar } from './components/navbar/Navbar';
-import { MobileBottomNav } from './components/navbar/MobileBottomNav';
 import { Footer } from './components/footer/Footer';
 import { Home } from './pages/Home';
 import { Explore } from './pages/Explore';
@@ -28,7 +26,7 @@ export default function App() {
     <LanguageProvider>
       <MarketplaceProvider>
         <BrowserRouter>
-          <div className="min-h-screen bg-[#F9FAF9] flex flex-col selection:bg-[#1b7a53]/20 pb-16 md:pb-0">
+          <div className="min-h-screen bg-[#F9FAF9] flex flex-col selection:bg-[#1b7a53]/20">
             <Navbar />
             
             <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
@@ -52,7 +50,6 @@ export default function App() {
             </main>
 
             <Footer />
-            <MobileBottomNav />
             <ToastContainer />
             <SearchModal />
           </div>
