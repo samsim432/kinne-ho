@@ -310,6 +310,14 @@ export const Navbar: React.FC = () => {
                   <LogIn className="w-4 h-4 text-gray-400" />
                   <span>Switch / Sign In</span>
                 </Link>
+                <Link
+  to="/admin"
+  onClick={() => setIsProfileOpen(false)}
+  className="flex items-center gap-2.5 px-3.5 py-2 text-red-700 hover:bg-red-50 font-bold"
+>
+  <ShieldCheck className="w-4 h-4 text-red-600" />
+  <span>Admin Moderation Desk</span>
+</Link>
 
                 <button
                   onClick={() => {

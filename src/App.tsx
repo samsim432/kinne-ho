@@ -21,6 +21,7 @@ import { Wallet } from './pages/Wallet';
 import { Checkout } from './pages/Checkout';
 import { OrderDetail } from './pages/OrderDetail';
 import { NotFound } from './pages/NotFound';
+import { Admin } from './pages/Admin';
 
 export default function App() {
   return (
@@ -45,6 +46,7 @@ export default function App() {
                 <Route path="/wallet" element={<Wallet />} />
                 <Route path="/checkout/:productId" element={<Checkout />} />
                 <Route path="/order/:orderId" element={<OrderDetail />} />
+                <Route path="/admin" element={<Admin />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>
