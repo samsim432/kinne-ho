@@ -1,23 +1,26 @@
 import React from 'react';
 import { Search, Heart, MessageSquare, User, Plus } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 
 export const Navbar: React.FC = () => {
+  const navigate = useNavigate();
+
   return (
     <header className="w-full bg-white border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-6">
         
         {/* Left: Brand + Navigation Links */}
         <div className="flex items-center gap-8">
-          <div className="flex flex-col cursor-pointer leading-tight">
+          <Link to="/" className="flex flex-col cursor-pointer leading-tight">
             <span className="font-extrabold text-xl text-[#111827] tracking-tight">Kinne Ho?</span>
             <span className="text-[11px] text-[#1b7a53] font-medium">किन्ने हो?</span>
-          </div>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
-            <a href="#explore" className="hover:text-gray-900 transition-colors">Explore</a>
-            <a href="#categories" className="hover:text-gray-900 transition-colors">Categories</a>
-            <a href="#sell" className="hover:text-gray-900 transition-colors">Sell</a>
-            <a href="#about" className="hover:text-gray-900 transition-colors">About</a>
+            <Link to="/explore" className="hover:text-gray-900 transition-colors">Explore</Link>
+            <Link to="/explore" className="hover:text-gray-900 transition-colors">Categories</Link>
+            <Link to="/sell" className="hover:text-gray-900 transition-colors">Sell</Link>
+            <Link to="/about" className="hover:text-gray-900 transition-colors">About</Link>
           </nav>
         </div>
 
@@ -28,6 +31,11 @@ export const Navbar: React.FC = () => {
             <input
               type="text"
               placeholder="Search items"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  navigate(`/explore?q=${encodeURIComponent((e.target as HTMLInputElement).value)}`);
+                }
+              }}
               className="w-full bg-gray-50/70 border border-gray-200 rounded-lg pl-9 pr-4 py-1.5 text-sm placeholder:text-gray-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53] focus:border-[#1b7a53] transition-all"
             />
           </div>
@@ -48,7 +56,10 @@ export const Navbar: React.FC = () => {
             <User className="w-5 h-5" />
           </button>
 
-          <button className="bg-[#1b7a53] hover:bg-[#156343] text-white text-sm font-medium px-4 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-all">
+          <button 
+            onClick={() => navigate('/sell')}
+            className="bg-[#1b7a53] hover:bg-[#156343] text-white text-sm font-medium px-4 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+          >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Sell</span>
           </button>
