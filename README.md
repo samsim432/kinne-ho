@@ -1,32 +1,5 @@
-# React + TypeScript + Vite
+This project provides a minimal and modern template designed to get React running smoothly with Vite, featuring fast Hot Module Replacement and preconfigured Oxlint rules. Depending on your build preferences, you can choose between two official plugins: `@vitejs/plugin-react`, which leverages Oxc transforms for high-speed compilation, or `@vitejs/plugin-react-swc`, which relies on the Rust-based SWC compiler.
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+To maintain optimal development and build performance out of the box, the React Compiler is disabled by default. If your application requires automatic memoization, you can enable it at any time by following the official React Compiler installation guide.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+For production-grade applications looking to expand linting capabilities, you can enable type-aware lint rules. Simply install `oxlint-tsgolint` as a development dependency and configure your `.oxlintrc.json` file to enable type awareness, enforce the Rules of Hooks, and manage component export warnings. You can refer to the official Oxlint documentation to explore the full catalog of available rules and configuration options.
