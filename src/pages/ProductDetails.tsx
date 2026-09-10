@@ -137,12 +137,12 @@ export const ProductDetails: React.FC = () => {
             >
               Make Offer
             </button>
-            <button
-              onClick={() => alert('Proceeding to buy now...')}
-              className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-800 font-semibold py-2.5 rounded-xl transition-colors cursor-pointer text-sm shadow-2xs text-center"
-            >
-              Buy Now
-            </button>
+<button
+  onClick={() => navigate(`/checkout/${product.id}`)}
+  className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-800 font-semibold py-2.5 rounded-xl transition-colors cursor-pointer text-sm shadow-2xs text-center"
+>
+  Buy Now
+</button>
           </div>
 
           {/* Direct Message Seller Button */}

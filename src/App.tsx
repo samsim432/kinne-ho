@@ -13,6 +13,8 @@ import { Auth } from './pages/Auth';
 import { MyListings } from './pages/MyListings';
 import { Safety } from './pages/Safety';
 import { Wallet } from './pages/Wallet';
+import { Checkout } from './pages/Checkout';
+import { OrderDetail } from './pages/OrderDetail';
 
 export default function App() {
   return (
@@ -33,6 +35,8 @@ export default function App() {
             <Route path="/my-listings" element={<MyListings />} />
             <Route path="/safety" element={<Safety />} />
             <Route path="/wallet" element={<Wallet />} />
+            <Route path="/checkout/:productId" element={<Checkout />} />
+            <Route path="/order/:orderId" element={<OrderDetail />} />
           </Routes>
         </main>
 
