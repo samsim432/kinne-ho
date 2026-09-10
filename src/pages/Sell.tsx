@@ -1,18 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMarketplace } from '../context/MarketplaceContext';
+import { ImageUploader } from '../components/sell/ImageUploader';
 import { 
-  Camera, 
-  Upload, 
   CheckCircle2, 
   ArrowLeft, 
   ArrowRight, 
   Sparkles, 
-  MapPin, 
-  AlertCircle,
-  Tag,
   ShieldCheck,
-  X
+  Tag
 } from 'lucide-react';
 
 interface DefectOption {
@@ -65,9 +61,15 @@ export const Sell: React.FC = () => {
   };
 
   const handleNext = () => {
-    if (step === 1 && !title.trim()) {
-      showToast('Please enter a listing title', '', 'warning');
-      return;
+    if (step === 1) {
+      if (!title.trim()) {
+        showToast('Please enter a listing title', '', 'warning');
+        return;
+      }
+      if (images.length === 0) {
+        showToast('Please upload at least 1 photo', '', 'warning');
+        return;
+      }
     }
     if (step === 4 && !price) {
       showToast('Please set your asking price', '', 'warning');
@@ -89,7 +91,7 @@ export const Sell: React.FC = () => {
         <div className="flex items-center justify-between text-xs font-bold text-gray-500">
           <span>Step {step} of {totalSteps}</span>
           <span className="text-[#1b7a53]">
-            {step === 1 && 'Basic Details'}
+            {step === 1 && 'Photos & Basic Details'}
             {step === 2 && 'Category Specifications'}
             {step === 3 && 'Condition & Defects'}
             {step === 4 && 'Pricing & Escrow'}
@@ -108,15 +110,18 @@ export const Sell: React.FC = () => {
       {/* Main Step Card Container */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-2xs space-y-6">
         
-        {/* STEP 1: Title, Category & Photos */}
+        {/* STEP 1: Photos, Title & Category */}
         {step === 1 && (
-          <div className="space-y-5 animate-in fade-in duration-150">
+          <div className="space-y-6 animate-in fade-in duration-150">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">What are you selling?</h2>
-              <p className="text-xs text-gray-500">Give your item a clear, descriptive title.</p>
+              <h2 className="text-xl font-bold text-gray-900">Upload Photos & Basic Details</h2>
+              <p className="text-xs text-gray-500">Items with clear photos sell within 48 hours in Nepal.</p>
             </div>
 
-            <div className="space-y-1.5">
+            {/* Interactive Image Uploader */}
+            <ImageUploader images={images} setImages={setImages} />
+
+            <div className="space-y-1.5 pt-2">
               <label className="text-xs font-bold text-gray-700">Listing Title *</label>
               <input
                 type="text"
@@ -124,7 +129,6 @@ export const Sell: React.FC = () => {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-900 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53]"
-                autoFocus
               />
             </div>
 
@@ -144,22 +148,6 @@ export const Sell: React.FC = () => {
                   >
                     {cat}
                   </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Photos */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-700 block">Upload Photos</label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                <div className="border-2 border-dashed border-gray-200 hover:border-[#1b7a53] rounded-xl aspect-square flex flex-col items-center justify-center text-gray-400 hover:text-[#1b7a53] transition-colors cursor-pointer bg-gray-50/50">
-                  <Camera className="w-6 h-6 mb-1" />
-                  <span className="text-[11px] font-semibold">Add Photo</span>
-                </div>
-                {images.map((img, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
-                    <img src={img} alt="Upload" className="w-full h-full object-cover" />
-                  </div>
                 ))}
               </div>
             </div>
@@ -249,7 +237,7 @@ export const Sell: React.FC = () => {
           </div>
         )}
 
-        {/* STEP 3: Condition & Transparent Defects */}
+        {/* STEP 3: Condition & Defects */}
         {step === 3 && (
           <div className="space-y-5 animate-in fade-in duration-150">
             <div>
@@ -277,7 +265,6 @@ export const Sell: React.FC = () => {
               </div>
             </div>
 
-            {/* Structured Defect Checklist */}
             <div className="space-y-2 pt-2">
               <label className="text-xs font-bold text-gray-700 block">Check Any Existing Flaws (if any)</label>
               <div className="space-y-2">
@@ -322,7 +309,6 @@ export const Sell: React.FC = () => {
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-2.5 text-base font-extrabold text-gray-900 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53]"
-                    autoFocus
                   />
                 </div>
               </div>
@@ -388,7 +374,7 @@ export const Sell: React.FC = () => {
             </div>
 
             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex gap-4 items-center">
-              <img src={images[0]} alt="Preview" className="w-20 h-20 rounded-xl object-cover bg-gray-200" />
+              <img src={images[0] || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&q=80'} alt="Preview" className="w-20 h-20 rounded-xl object-cover bg-gray-200" />
               <div className="space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-[#1b7a53]/10 text-[#1b7a53] px-2 py-0.5 rounded">
                   {category} · {condition}
@@ -397,7 +383,7 @@ export const Sell: React.FC = () => {
                 <p className="text-sm font-extrabold text-[#1b7a53]">
                   Rs. {Number(price || 0).toLocaleString()}
                 </p>
-                <span className="text-xs text-gray-400 block">{location}</span>
+                <span className="text-xs text-gray-400 block">{location} • {images.length} photos</span>
               </div>
             </div>
           </div>
