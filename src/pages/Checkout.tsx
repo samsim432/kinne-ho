@@ -1,30 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { MOCK_PRODUCTS } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { initiateEsewaPayment } from '../lib/esewa';
 import { DeliveryMapPicker } from '../components/checkout/DeliveryMapPicker';
+import { KhaltiModal } from '../components/checkout/KhaltiModal';
 import { 
   ShieldCheck, 
   MapPin, 
   Truck, 
   UserCheck, 
-  CreditCard, 
-  Wallet, 
   CheckCircle2, 
   ArrowLeft,
   Lock,
+  Wallet,
   Loader2
 } from 'lucide-react';
 import type { ProductItem } from '../types/marketplace';
 
 export const Checkout: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile } = useAuth();
   const { createEscrowOrder, showToast } = useMarketplace();
 
   const [product, setProduct] = useState<ProductItem | null>(null);
@@ -34,6 +33,7 @@ export const Checkout: React.FC = () => {
   const [deliveryMethod, setDeliveryMethod] = useState<'self_pickup' | 'doorstep'>('doorstep');
   const [address, setAddress] = useState(profile?.delivery_address || 'New Baneshwor, Kathmandu');
   const [paymentMethod, setPaymentMethod] = useState<'esewa' | 'khalti' | 'wallet'>('esewa');
+  const [isKhaltiModalOpen, setIsKhaltiModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -66,7 +66,7 @@ export const Checkout: React.FC = () => {
           const fallback = MOCK_PRODUCTS.find((p) => p.id === productId) || MOCK_PRODUCTS[0];
           setProduct(fallback);
         }
-      } catch (err) {
+      } catch {
         setProduct(MOCK_PRODUCTS[0]);
       } finally {
         setLoading(false);
@@ -97,12 +97,16 @@ export const Checkout: React.FC = () => {
       return;
     }
 
+    if (paymentMethod === 'khalti') {
+      setIsKhaltiModalOpen(true);
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
       if (paymentMethod === 'esewa') {
         const txUuid = `KH-${Date.now()}`;
-        // Create local escrow record first
         const newOrder = createEscrowOrder({
           productId: product.id,
           productTitle: product.title,
@@ -117,7 +121,6 @@ export const Checkout: React.FC = () => {
           paymentGateway: 'esewa',
         });
 
-        // Trigger eSewa Form submission
         initiateEsewaPayment({
           amount: product.price,
           deliveryCharge: deliveryFee,
@@ -129,7 +132,7 @@ export const Checkout: React.FC = () => {
         return;
       }
 
-      // Wallet or Khalti Fallback workflow
+      // Wallet payment flow
       const newOrder = createEscrowOrder({
         productId: product.id,
         productTitle: product.title,
@@ -141,7 +144,7 @@ export const Checkout: React.FC = () => {
         deliveryFee,
         totalAmount,
         address,
-        paymentGateway: paymentMethod,
+        paymentGateway: 'wallet',
       });
 
       showToast('Escrow Locked! 🔒', 'Your funds are held safely until handover verification.', 'success');
@@ -151,6 +154,26 @@ export const Checkout: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleKhaltiSuccess = (txId: string) => {
+    setIsKhaltiModalOpen(false);
+    const newOrder = createEscrowOrder({
+      productId: product.id,
+      productTitle: product.title,
+      productPrice: product.price,
+      productImage: product.image,
+      sellerName: product.sellerName,
+      buyerName: profile ? `${profile.first_name} ${profile.surname}`.trim() : 'Buyer',
+      deliveryMethod,
+      deliveryFee,
+      totalAmount,
+      address,
+      paymentGateway: 'khalti',
+    });
+
+    showToast('Khalti Escrow Locked! 🟣', 'Payment held in escrow. Handshake PIN created.', 'success');
+    navigate(`/order/${newOrder.id}`);
   };
 
   return (
@@ -176,10 +199,10 @@ export const Checkout: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         
-        {/* Left Column: Delivery & Address */}
+        {/* Left Column: Delivery & Payment Options */}
         <div className="md:col-span-7 space-y-5">
           
-          {/* 1. Fulfillment Selection */}
+          {/* Fulfillment */}
           <div className="bg-white border border-gray-200/90 rounded-3xl p-5 shadow-2xs space-y-3">
             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
               1. Delivery or Pickup Method
@@ -226,7 +249,7 @@ export const Checkout: React.FC = () => {
             </div>
           </div>
 
-          {/* 2. Address & GPS Map Pin */}
+          {/* Address & GPS Pinning */}
           <div className="bg-white border border-gray-200/90 rounded-3xl p-5 shadow-2xs space-y-4">
             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
               2. Delivery Address & Map Pin
@@ -238,7 +261,7 @@ export const Checkout: React.FC = () => {
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="e.g. New Baneshwor, Kathmandu (Near Eye Hospital)"
+                placeholder="e.g. New Baneshwor, Kathmandu"
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-gray-900 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53]"
               />
             </div>
@@ -249,13 +272,14 @@ export const Checkout: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. Payment Method Selection */}
+          {/* Gateways: eSewa, Khalti & Wallet */}
           <div className="bg-white border border-gray-200/90 rounded-3xl p-5 shadow-2xs space-y-3">
             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
               3. Select Payment Gateway
             </h3>
 
             <div className="space-y-2">
+              {/* eSewa */}
               <div
                 onClick={() => setPaymentMethod('esewa')}
                 className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
@@ -276,6 +300,28 @@ export const Checkout: React.FC = () => {
                 {paymentMethod === 'esewa' && <CheckCircle2 className="w-4 h-4 text-[#60bb46]" />}
               </div>
 
+              {/* Khalti */}
+              <div
+                onClick={() => setPaymentMethod('khalti')}
+                className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+                  paymentMethod === 'khalti'
+                    ? 'border-[#5C2D91] bg-purple-50/40 ring-1 ring-[#5C2D91]'
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-[#5C2D91]/20 text-[#5C2D91] font-extrabold flex items-center justify-center text-xs">
+                    K
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-900">Khalti EPAY (Sandbox)</h4>
+                    <p className="text-[10px] text-gray-500">Fast in-app OTP checkout via Khalti</p>
+                  </div>
+                </div>
+                {paymentMethod === 'khalti' && <CheckCircle2 className="w-4 h-4 text-[#5C2D91]" />}
+              </div>
+
+              {/* Wallet */}
               <div
                 onClick={() => setPaymentMethod('wallet')}
                 className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
@@ -300,7 +346,7 @@ export const Checkout: React.FC = () => {
 
         </div>
 
-        {/* Right Column: Order Summary & Authorize Button */}
+        {/* Right Column: Order Summary */}
         <div className="md:col-span-5 space-y-4">
           <div className="bg-white border border-gray-200/90 rounded-3xl p-5 shadow-2xs space-y-4 sticky top-20">
             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
@@ -358,18 +404,19 @@ export const Checkout: React.FC = () => {
                 </>
               )}
             </button>
-
-            <div className="bg-[#f0f9f5] border border-[#d2efe2] rounded-2xl p-3 text-[11px] text-gray-600 space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-gray-900">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#1b7a53]" />
-                <span>Kinne Ho? Escrow Guarantee</span>
-              </div>
-              <p>The seller cannot withdraw these funds until you test the item and provide the 4-digit Handshake PIN.</p>
-            </div>
           </div>
         </div>
 
       </div>
+
+      {/* Khalti Sandbox In-App Modal */}
+      <KhaltiModal
+        isOpen={isKhaltiModalOpen}
+        onClose={() => setIsKhaltiModalOpen(false)}
+        amountInRs={totalAmount}
+        productTitle={product.title}
+        onSuccess={handleKhaltiSuccess}
+      />
 
     </div>
   );
