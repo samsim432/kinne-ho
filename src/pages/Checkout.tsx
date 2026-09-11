@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { MOCK_PRODUCTS } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +25,11 @@ export const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { createEscrowOrder, showToast } = useMarketplace();
+
+  // If user is not logged in, redirect directly to auth
+  if (!user) {
+    return <Navigate to={`/auth?mode=select&redirect=checkout&productId=${productId}`} replace />;
+  }
 
   const [product, setProduct] = useState<ProductItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,7 +61,7 @@ export const Checkout: React.FC = () => {
             condition: dbItem.condition,
             category: dbItem.category_id,
             location: dbItem.location,
-            sellerName: 'Verified Seller',
+            sellerName: dbItem.seller_name || 'Verified Member',
             sellerRating: 4.9,
             image: dbItem.images?.[0] || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=400&q=80',
             timeAgo: 'Recently',
@@ -91,12 +96,6 @@ export const Checkout: React.FC = () => {
   const totalAmount = product.price + deliveryFee;
 
   const handlePayAndLockEscrow = async () => {
-    if (!user) {
-      showToast('Sign in required', 'Please sign in to proceed with secure escrow payment.', 'warning');
-      navigate('/auth');
-      return;
-    }
-
     if (paymentMethod === 'khalti') {
       setIsKhaltiModalOpen(true);
       return;
@@ -179,7 +178,6 @@ export const Checkout: React.FC = () => {
   return (
     <div className="py-4 max-w-4xl mx-auto space-y-6">
       
-      {/* Header */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
@@ -198,11 +196,9 @@ export const Checkout: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-        
-        {/* Left Column: Delivery & Payment Options */}
         <div className="md:col-span-7 space-y-5">
           
-          {/* Fulfillment */}
+          {/* 1. Fulfillment */}
           <div className="bg-white border border-gray-200/90 rounded-3xl p-5 shadow-2xs space-y-3">
             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
               1. Delivery or Pickup Method
@@ -249,7 +245,7 @@ export const Checkout: React.FC = () => {
             </div>
           </div>
 
-          {/* Address & GPS Pinning */}
+          {/* 2. Address & Landmark Picker */}
           <div className="bg-white border border-gray-200/90 rounded-3xl p-5 shadow-2xs space-y-4">
             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
               2. Delivery Address & Map Pin
@@ -272,14 +268,13 @@ export const Checkout: React.FC = () => {
             </div>
           </div>
 
-          {/* Gateways: eSewa, Khalti & Wallet */}
+          {/* 3. Payment Gateway */}
           <div className="bg-white border border-gray-200/90 rounded-3xl p-5 shadow-2xs space-y-3">
             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
               3. Select Payment Gateway
             </h3>
 
             <div className="space-y-2">
-              {/* eSewa */}
               <div
                 onClick={() => setPaymentMethod('esewa')}
                 className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
@@ -300,7 +295,6 @@ export const Checkout: React.FC = () => {
                 {paymentMethod === 'esewa' && <CheckCircle2 className="w-4 h-4 text-[#60bb46]" />}
               </div>
 
-              {/* Khalti */}
               <div
                 onClick={() => setPaymentMethod('khalti')}
                 className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
@@ -321,7 +315,6 @@ export const Checkout: React.FC = () => {
                 {paymentMethod === 'khalti' && <CheckCircle2 className="w-4 h-4 text-[#5C2D91]" />}
               </div>
 
-              {/* Wallet */}
               <div
                 onClick={() => setPaymentMethod('wallet')}
                 className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
@@ -346,7 +339,7 @@ export const Checkout: React.FC = () => {
 
         </div>
 
-        {/* Right Column: Order Summary */}
+        {/* Right Summary */}
         <div className="md:col-span-5 space-y-4">
           <div className="bg-white border border-gray-200/90 rounded-3xl p-5 shadow-2xs space-y-4 sticky top-20">
             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
@@ -409,7 +402,6 @@ export const Checkout: React.FC = () => {
 
       </div>
 
-      {/* Khalti Sandbox In-App Modal */}
       <KhaltiModal
         isOpen={isKhaltiModalOpen}
         onClose={() => setIsKhaltiModalOpen(false)}

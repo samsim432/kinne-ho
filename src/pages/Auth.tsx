@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useMarketplace } from '../context/MarketplaceContext';
-import { Apple, Mail, ArrowLeft, Lock, User, Smartphone, MapPin } from 'lucide-react';
+import { Apple, Mail, ArrowLeft, Lock, User, Smartphone } from 'lucide-react';
 
 export const Auth: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -10,7 +10,8 @@ export const Auth: React.FC = () => {
   const { showToast } = useMarketplace();
 
   const initialMode = searchParams.get('mode') === 'login' ? 'login' : 'select';
-  const redirectTarget = searchParams.get('redirect') || '/';
+  const redirectTarget = searchParams.get('redirect');
+  const productIdParam = searchParams.get('productId');
 
   const [view, setView] = useState<'select' | 'email_signup' | 'login' | 'forgot'>(initialMode);
   const [email, setEmail] = useState('');
@@ -20,13 +21,24 @@ export const Auth: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Demo Social Auth Handlers
+  // REDIRECT RESTORATION ROUTER
+  const handlePostAuthRedirect = () => {
+    if (redirectTarget === 'sell') {
+      navigate('/sell');
+    } else if (redirectTarget === 'checkout' && productIdParam) {
+      navigate(`/checkout/${productIdParam}`);
+    } else if (redirectTarget === 'product' && productIdParam) {
+      navigate(`/product/${productIdParam}`);
+    } else {
+      navigate('/');
+    }
+  };
+
   const handleSocialAuth = (provider: string) => {
-    showToast(`${provider} Authentication`, `Connecting with ${provider}...`, 'info');
+    showToast(`${provider} Sign In`, `Connected successfully with ${provider}.`, 'success');
     setTimeout(() => {
-      showToast('Welcome! 🎉', 'You have been registered with Vinted pre-login.', 'success');
-      navigate(redirectTarget === 'sell' ? '/sell' : '/');
-    }, 800);
+      handlePostAuthRedirect();
+    }, 400);
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -47,13 +59,13 @@ export const Auth: React.FC = () => {
           },
         });
         if (error) throw error;
-        showToast('Account Created! 🎉', 'Welcome to Vinted. You can now sell and buy with 0% seller fees.', 'success');
-        navigate(redirectTarget === 'sell' ? '/sell' : '/');
+        showToast('Account Created! 🎉', 'Welcome to Kinne Ho? (0% seller fees).', 'success');
+        handlePostAuthRedirect();
       } else if (view === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         showToast('Welcome back 👋', 'Signed in successfully.', 'success');
-        navigate(redirectTarget === 'sell' ? '/sell' : '/');
+        handlePostAuthRedirect();
       } else if (view === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth?mode=login`,
@@ -72,37 +84,36 @@ export const Auth: React.FC = () => {
   return (
     <div className="py-12 px-4 max-w-md mx-auto space-y-6">
       
-      <div className="bg-white border border-gray-200 rounded-xl p-6 sm:p-8 shadow-sm space-y-6">
+      <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 shadow-card space-y-6">
         
-        {/* Title */}
         <div className="text-center space-y-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-            {view === 'select' && 'Join and sell pre-loved clothes with no fees'}
+          <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+            {view === 'select' && 'Join and sell pre-loved pieces with no fees'}
             {view === 'email_signup' && 'Sign up with email'}
-            {view === 'login' && 'Log in to Vinted'}
+            {view === 'login' && 'Log in to Kinne Ho?'}
             {view === 'forgot' && 'Reset your password'}
           </h1>
+          <p className="text-xs text-gray-500">
+            {view === 'select' && 'Sign in to buy with Escrow protection or list items for free.'}
+          </p>
         </div>
 
-        {/* 1. SELECT SOCIAL PROVIDERS (Exact match to screenshot) */}
+        {/* 1. SELECT SOCIAL PROVIDERS */}
         {view === 'select' && (
           <div className="space-y-3">
-            
-            {/* Apple */}
             <button
               type="button"
               onClick={() => handleSocialAuth('Apple')}
-              className="w-full flex items-center justify-center gap-3 border border-gray-900 bg-white hover:bg-gray-50 text-gray-900 font-bold py-3 px-4 rounded-md text-xs sm:text-sm transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-3 border border-gray-900 bg-white hover:bg-gray-50 text-gray-900 font-bold py-3 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
             >
               <Apple className="w-5 h-5 fill-current" />
               <span>Continue with Apple</span>
             </button>
 
-            {/* Google */}
             <button
               type="button"
               onClick={() => handleSocialAuth('Google')}
-              className="w-full flex items-center justify-center gap-3 border border-gray-900 bg-white hover:bg-gray-50 text-gray-900 font-bold py-3 px-4 rounded-md text-xs sm:text-sm transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-3 border border-gray-300 bg-white hover:bg-gray-50 text-gray-900 font-bold py-3 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -113,11 +124,10 @@ export const Auth: React.FC = () => {
               <span>Continue with Google</span>
             </button>
 
-            {/* Facebook */}
             <button
               type="button"
               onClick={() => handleSocialAuth('Facebook')}
-              className="w-full flex items-center justify-center gap-3 border border-gray-900 bg-white hover:bg-gray-50 text-gray-900 font-bold py-3 px-4 rounded-md text-xs sm:text-sm transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-3 border border-gray-300 bg-white hover:bg-gray-50 text-gray-900 font-bold py-3 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
             >
               <svg className="w-5 h-5 text-[#1877F2] fill-current" viewBox="0 0 24 24">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
@@ -130,7 +140,7 @@ export const Auth: React.FC = () => {
                 Or register with{' '}
                 <button
                   onClick={() => setView('email_signup')}
-                  className="font-bold text-[#007782] hover:underline cursor-pointer"
+                  className="font-bold text-[#1b7a53] hover:underline cursor-pointer"
                 >
                   email
                 </button>
@@ -140,7 +150,7 @@ export const Auth: React.FC = () => {
                 Already have an account?{' '}
                 <button
                   onClick={() => setView('login')}
-                  className="font-bold text-[#007782] hover:underline cursor-pointer"
+                  className="font-bold text-[#1b7a53] hover:underline cursor-pointer"
                 >
                   Log in
                 </button>
@@ -149,16 +159,15 @@ export const Auth: React.FC = () => {
 
             <div className="pt-4 border-t border-gray-100 text-center text-xs text-gray-500">
               Are you a business?{' '}
-              <Link to="/safety" className="text-[#007782] hover:underline">
+              <Link to="/how-it-works" className="text-[#1b7a53] hover:underline font-bold">
                 Learn more
               </Link>
               .
             </div>
-
           </div>
         )}
 
-        {/* 2. EMAIL SIGN UP / LOGIN FORM */}
+        {/* 2. EMAIL SIGN UP / LOGIN / FORGOT FORM */}
         {view !== 'select' && (
           <form onSubmit={handleEmailAuth} className="space-y-4">
             <button
@@ -179,7 +188,7 @@ export const Auth: React.FC = () => {
                     required
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:border-[#007782]"
+                    className="w-full border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-xs focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53]"
                   />
                 </div>
                 <div className="space-y-1">
@@ -189,7 +198,7 @@ export const Auth: React.FC = () => {
                     required
                     value={surname}
                     onChange={(e) => setSurname(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:border-[#007782]"
+                    className="w-full border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-xs focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53]"
                   />
                 </div>
               </div>
@@ -203,7 +212,7 @@ export const Auth: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:border-[#007782]"
+                className="w-full border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-xs focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53]"
               />
             </div>
 
@@ -215,7 +224,7 @@ export const Auth: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setView('forgot')}
-                      className="text-[11px] text-[#007782] hover:underline"
+                      className="text-[11px] text-[#1b7a53] hover:underline cursor-pointer"
                     >
                       Forgot password?
                     </button>
@@ -227,7 +236,7 @@ export const Auth: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:border-[#007782]"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-xs focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53]"
                 />
               </div>
             )}
@@ -235,15 +244,15 @@ export const Auth: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#007782] hover:bg-[#09666f] text-white font-bold py-2.5 rounded-md text-xs sm:text-sm transition-colors cursor-pointer"
+              className="w-full bg-[#1b7a53] hover:bg-[#156343] text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer disabled:opacity-50"
             >
               {loading
                 ? 'Please wait...'
                 : view === 'email_signup'
-                ? 'Continue'
+                ? 'Create Account'
                 : view === 'login'
                 ? 'Log in'
-                : 'Send reset link'}
+                : 'Send Reset Link'}
             </button>
           </form>
         )}

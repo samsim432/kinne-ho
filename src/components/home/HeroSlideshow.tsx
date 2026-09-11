@@ -61,13 +61,14 @@ export const HeroSlideshow: React.FC = () => {
 
           {/* Learn Link */}
           <button
-            type="button"
-            onClick={() => navigate('/safety')}
-            className="w-full text-center text-xs font-semibold text-gray-600 hover:text-[#1b7a53] transition-colors cursor-pointer py-1 flex items-center justify-center gap-1"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-[#1b7a53]" />
-            <span className="hover:underline">Learn how Escrow works</span>
-          </button>
+  type="button"
+  onClick={() => navigate('/how-it-works')}
+  className="w-full text-center text-xs font-semibold text-gray-600 hover:text-[#1b7a53] transition-colors cursor-pointer py-1 flex items-center justify-center gap-1"
+>
+  <ShieldCheck className="w-3.5 h-3.5 text-[#1b7a53]" />
+  <span className="hover:underline">Learn how Escrow works</span>
+</button>
+    
         </div>
 
       </div>
