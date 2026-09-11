@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, Tag, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { useMarketplace } from '../../context/MarketplaceContext';
 import type { ProductItem } from '../../types/marketplace';
 
 interface MakeOfferModalProps {
   product: ProductItem;
   isOpen: boolean;
   onClose: () => void;
-  onSubmitOffer: (amount: number, message?: string) => void;
+  onSubmitOffer: (amount: number) => void;
 }
 
 export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
@@ -15,22 +17,41 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   onClose,
   onSubmitOffer,
 }) => {
-  const [offerAmount, setOfferAmount] = useState<number>(43000);
-  const [message, setMessage] = useState('Hi! Can we meet in Kathmandu this weekend?');
+  const navigate = useNavigate();
+  const { showToast } = useMarketplace();
+  const [offerPrice, setOfferPrice] = useState<string>(
+    Math.round(product.price * 0.9).toString()
+  );
 
   if (!isOpen) return null;
 
+  const quickDiscounts = [
+    { label: '-5%', val: Math.round(product.price * 0.95) },
+    { label: '-10%', val: Math.round(product.price * 0.9) },
+    { label: '-15%', val: Math.round(product.price * 0.85) },
+  ];
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmitOffer(offerAmount, message);
+    const amount = parseInt(offerPrice, 10);
+    if (!amount || amount <= 0) {
+      showToast('Invalid Amount', 'Please enter a valid offer amount.', 'warning');
+      return;
+    }
+    if (amount < product.price * 0.5) {
+      showToast('Offer too low', 'Offers below 50% of the asking price are usually rejected.', 'warning');
+      return;
+    }
+
+    onSubmitOffer(amount);
+    showToast('Offer Proposed! 🤝', `Your offer of Rs. ${amount.toLocaleString()} was sent to ${product.sellerName}.`, 'success');
     onClose();
+    navigate(`/messages?seller=${encodeURIComponent(product.sellerName)}&productId=${product.id}&offer=${amount}`);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl relative">
-        
-        {/* Close */}
+      <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
         <button
           onClick={onClose}
           className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 cursor-pointer"
@@ -38,59 +59,64 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Header */}
         <div className="space-y-1">
-          <h3 className="text-xl font-bold text-gray-900">Make an offer</h3>
-          <p className="text-sm text-gray-500">
-            {product.title} — listed at Rs. {product.price.toLocaleString()}
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#1b7a53] flex items-center justify-center">
+            <Tag className="w-5 h-5" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900">Make an Offer</h3>
+          <p className="text-xs text-gray-500">
+            Current asking price: <strong className="text-gray-900">Rs. {product.price.toLocaleString()}</strong>
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Offer Input */}
+        {/* Quick Discount Buttons */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-gray-700">Quick Offers</label>
+          <div className="grid grid-cols-3 gap-2">
+            {quickDiscounts.map((qd) => (
+              <button
+                key={qd.label}
+                type="button"
+                onClick={() => setOfferPrice(qd.val.toString())}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                  offerPrice === qd.val.toString()
+                    ? 'border-[#1b7a53] bg-emerald-50 text-[#1b7a53]'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span>{qd.label}</span>
+                <span className="block text-[10px] text-gray-400">Rs. {qd.val.toLocaleString()}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-gray-900 block">Your offer</label>
-            <div className="relative flex items-center border border-gray-300 rounded-xl px-3.5 py-2.5 focus-within:border-[#1b7a53] focus-within:ring-1 focus-within:ring-[#1b7a53] bg-white">
-              <span className="text-gray-500 font-medium text-sm mr-1">Rs.</span>
+            <label className="text-xs font-bold text-gray-700">Your Offer Amount (Rs.)</label>
+            <div className="relative flex items-center">
+              <span className="absolute left-3.5 text-sm font-bold text-gray-500">Rs.</span>
               <input
                 type="number"
-                value={offerAmount}
-                onChange={(e) => setOfferAmount(Number(e.target.value))}
-                className="w-full text-base font-semibold text-gray-900 focus:outline-none"
                 required
+                value={offerPrice}
+                onChange={(e) => setOfferPrice(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-2.5 text-base font-extrabold text-gray-900 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1b7a53]"
               />
             </div>
           </div>
 
-          {/* Asking Price vs Offer Breakdown Box */}
-          <div className="bg-gray-50/80 rounded-xl p-4 space-y-2 text-sm">
-            <div className="flex justify-between items-center text-gray-600">
-              <span>Asking price</span>
-              <span className="font-semibold text-gray-900">Rs. {product.price.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center text-gray-600">
-              <span>Your offer</span>
-              <span className="font-bold text-[#1b7a53]">Rs. {offerAmount.toLocaleString()}</span>
-            </div>
-          </div>
-
-          {/* Optional Message */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-gray-900 block">Add a message (optional)</label>
-            <textarea
-              rows={3}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Suggest a meetup location or ask a quick question..."
-              className="w-full bg-white border border-gray-300 rounded-xl p-3 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#1b7a53] focus:ring-1 focus:ring-[#1b7a53]"
-            />
+          <div className="bg-[#f0f9f5] border border-[#d2efe2] rounded-2xl p-3.5 text-xs text-gray-600 flex items-start gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#1b7a53] shrink-0 mt-0.5" />
+            <span>If accepted, you can instantly lock this price into Escrow with zero risk.</span>
           </div>
 
           <button
             type="submit"
-            className="w-full bg-[#1b7a53] hover:bg-[#156343] text-white font-semibold py-3 rounded-xl transition-colors cursor-pointer text-sm"
+            className="w-full bg-[#1b7a53] hover:bg-[#156343] text-white font-bold py-3 rounded-xl transition-all shadow-xs cursor-pointer text-xs sm:text-sm flex items-center justify-center gap-1.5"
           >
-            Send offer
+            <span>Send Offer to Seller</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
         </form>
       </div>
