@@ -11,8 +11,18 @@ export interface EsewaPaymentPayload {
   failureUrl: string;
 }
 
+export interface EsewaResponsePayload {
+  transaction_code: string;
+  status: string;
+  total_amount: string;
+  transaction_uuid: string;
+  product_code: string;
+  signed_field_names: string;
+  signature: string;
+}
+
 const ESEWA_SECRET_KEY = '8gBm/:&EnhH.1/q'; // Official eSewa Sandbox Secret Key
-const ESEWA_TEST_GATEWAY_URL = 'https://rc-epay.esewa.com.np/api/epay/main/v2/form';
+const ESEWA_TEST_GATEWAY_URL = 'https://rc-epay.esewa.com.np/api/epay/main/v2/form'; //
 
 export const initiateEsewaPayment = (payload: EsewaPaymentPayload) => {
   const totalAmount = payload.amount + (payload.taxAmount || 0) + (payload.serviceCharge || 0) + (payload.deliveryCharge || 0);
@@ -23,7 +33,6 @@ export const initiateEsewaPayment = (payload: EsewaPaymentPayload) => {
   const hash = CryptoJS.HmacSHA256(signatureString, ESEWA_SECRET_KEY);
   const signatureBase64 = CryptoJS.enc.Base64.stringify(hash);
 
-  // Dynamically construct and submit the standard POST form to eSewa
   const form = document.createElement('form');
   form.setAttribute('method', 'POST');
   form.setAttribute('action', ESEWA_TEST_GATEWAY_URL);
@@ -52,4 +61,18 @@ export const initiateEsewaPayment = (payload: EsewaPaymentPayload) => {
 
   document.body.appendChild(form);
   form.submit();
+};
+
+/**
+ * Decodes the base64 encoded response string sent back by eSewa EPAY v2
+ */
+export const decodeEsewaResponse = (base64Data: string): EsewaResponsePayload | null => {
+  try {
+    const decodedWords = CryptoJS.enc.Base64.parse(base64Data);
+    const decodedString = CryptoJS.enc.Utf8.stringify(decodedWords);
+    return JSON.parse(decodedString) as EsewaResponsePayload;
+  } catch (err) {
+    console.error('Failed to decode eSewa response:', err);
+    return null;
+  }
 };
