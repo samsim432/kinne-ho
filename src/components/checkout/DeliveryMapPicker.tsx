@@ -1,107 +1,109 @@
-import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
-import { MapPin, Navigation, Compass } from 'lucide-react';
+import React, { useState } from 'react';
+import { MapPin, Navigation, Crosshair, Check } from 'lucide-react';
+import { useMarketplace } from '../../context/MarketplaceContext';
 
-// Fix Leaflet default icon path issue in React
-const customMarkerIcon = new L.DivIcon({
-  className: 'custom-pin',
-  html: `<div style="background-color: #1b7a53; color: white; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(27,122,83,0.4); border: 2px solid white;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-         </div>`,
-  iconSize: [34, 34],
-  iconAnchor: [17, 34],
-});
+const NEPAL_LANDMARKS = [
+  { name: 'New Baneshwor Chowk', city: 'Kathmandu', lat: 27.6915, lng: 85.3420 },
+  { name: 'Maitighar Mandala', city: 'Kathmandu', lat: 27.6938, lng: 85.3217 },
+  { name: 'Patan Durbar Square', city: 'Lalitpur', lat: 27.6727, lng: 85.3253 },
+  { name: 'Suryabinayak Chowk', city: 'Bhaktapur', lat: 27.6667, lng: 85.4286 },
+  { name: 'Lakeside Center', city: 'Pokhara', lat: 28.2096, lng: 83.9595 },
+];
 
-interface LocationMarkerProps {
-  position: [number, number];
-  setPosition: (pos: [number, number]) => void;
-  onLocationSelect: (addressHint: string) => void;
-}
-
-const LocationMarker: React.FC<LocationMarkerProps> = ({ position, setPosition, onLocationSelect }) => {
-  const map = useMapEvents({
-    click(e) {
-      const newPos: [number, number] = [e.latlng.lat, e.latlng.lng];
-      setPosition(newPos);
-      map.flyTo(e.latlng, map.getZoom());
-      onLocationSelect(`Pinned Location (${newPos[0].toFixed(4)}, ${newPos[1].toFixed(4)})`);
-    },
-  });
-
-  return position ? <Marker position={position} icon={customMarkerIcon} /> : null;
-};
-
-interface DeliveryMapPickerProps {
-  onSelectCoordinates: (lat: number, lng: number, label: string) => void;
-}
-
-export const DeliveryMapPicker: React.FC<DeliveryMapPickerProps> = ({ onSelectCoordinates }) => {
-  // Default coordinates: Kathmandu City Center (27.7172, 85.3240)
-  const [position, setPosition] = useState<[number, number]>([27.7172, 85.3240]);
+export const DeliveryMapPicker: React.FC = () => {
+  const { showToast } = useMarketplace();
+  const [selectedPin, setSelectedPin] = useState(NEPAL_LANDMARKS[0]);
   const [isLocating, setIsLocating] = useState(false);
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+      showToast('Geolocation Unsupported', 'Your browser does not support GPS location.', 'warning');
       return;
     }
 
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        setPosition(coords);
         setIsLocating(false);
-        onSelectCoordinates(coords[0], coords[1], 'Current GPS Location (Kathmandu)');
+        const customPin = {
+          name: 'Current Device Location',
+          city: 'Kathmandu Valley (GPS)',
+          lat: Number(pos.coords.latitude.toFixed(4)),
+          lng: Number(pos.coords.longitude.toFixed(4)),
+        };
+        setSelectedPin(customPin);
+        showToast('GPS Location Locked! 📍', `Coordinates: ${customPin.lat}, ${customPin.lng}`, 'success');
       },
       () => {
         setIsLocating(false);
-        alert('Could not retrieve your GPS location. Please tap directly on the map.');
+        showToast('Location Permission Denied', 'Please select a popular meeting chowk below.', 'info');
       }
     );
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-          <Compass className="w-3.5 h-3.5 text-[#1b7a53]" />
-          <span>Pin Delivery Point on Map</span>
-        </label>
+    <div className="space-y-3">
+      {/* Map Mock Simulation Box */}
+      <div className="relative h-44 w-full bg-emerald-950/90 rounded-2xl overflow-hidden border border-gray-200 flex flex-col justify-between p-4 text-white shadow-inner">
         
-        <button
-          type="button"
-          onClick={handleUseCurrentLocation}
-          className="text-xs font-bold text-[#1b7a53] hover:text-[#156343] flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 cursor-pointer"
-        >
-          <Navigation className="w-3 h-3" />
-          <span>{isLocating ? 'Locating...' : 'Use Current GPS'}</span>
-        </button>
+        {/* Background Grid Lines */}
+        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="flex items-center gap-2 bg-black/50 backdrop-blur-xs px-3 py-1 rounded-xl text-xs font-mono">
+            <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{selectedPin.lat}, {selectedPin.lng}</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleUseCurrentLocation}
+            disabled={isLocating}
+            className="bg-white text-gray-900 hover:bg-emerald-50 px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+          >
+            <Navigation className={`w-3.5 h-3.5 text-[#1b7a53] ${isLocating ? 'animate-spin' : ''}`} />
+            <span>{isLocating ? 'Detecting...' : 'My GPS Location'}</span>
+          </button>
+        </div>
+
+        {/* Center Target Pin */}
+        <div className="relative z-10 self-center flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg animate-bounce">
+            <Crosshair className="w-4 h-4" />
+          </div>
+          <span className="bg-black/70 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-md mt-1 backdrop-blur-xs">
+            {selectedPin.name}
+          </span>
+        </div>
+
+        <div className="relative z-10 text-[10px] text-gray-300 bg-black/40 px-2.5 py-1 rounded-lg w-fit backdrop-blur-xs">
+          Area: {selectedPin.city} • Verified Handshake Zone
+        </div>
       </div>
 
-      <div className="h-56 w-full rounded-2xl overflow-hidden border border-gray-200 relative z-0 shadow-2xs">
-        <MapContainer
-          center={position}
-          zoom={13}
-          scrollWheelZoom={false}
-          className="h-full w-full"
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <LocationMarker
-            position={position}
-            setPosition={setPosition}
-            onLocationSelect={(hint) => onSelectCoordinates(position[0], position[1], hint)}
-          />
-        </MapContainer>
+      {/* Preset Landmark Chips */}
+      <div className="space-y-1.5">
+        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
+          Quick Landmark Meeting Points
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {NEPAL_LANDMARKS.map((lm) => (
+            <button
+              key={lm.name}
+              type="button"
+              onClick={() => setSelectedPin(lm)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                selectedPin.name === lm.name
+                  ? 'bg-[#1b7a53] text-white shadow-2xs'
+                  : 'bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {selectedPin.name === lm.name && <Check className="w-3 h-3" />}
+              <span>{lm.name}</span>
+            </button>
+          ))}
+        </div>
       </div>
-
-      <p className="text-[11px] text-gray-400">
-        💡 Tap anywhere on the map to place the delivery pin for courier / seller drop-off.
-      </p>
     </div>
   );
 };
