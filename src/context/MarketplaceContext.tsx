@@ -1,128 +1,159 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { MOCK_PRODUCTS } from '../data/mockData';
+import type { ProductItem } from '../types/marketplace';
 
-export interface ToastMessage {
+export interface ToastItem {
   id: string;
   title: string;
-  description?: string;
-  type?: 'success' | 'info' | 'warning' | 'error';
+  message: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+}
+
+export interface EscrowOrder {
+  id: string;
+  productId: string;
+  productTitle: string;
+  productPrice: number;
+  productImage: string;
+  sellerName: string;
+  buyerName: string;
+  deliveryMethod: 'self_pickup' | 'doorstep';
+  deliveryFee: number;
+  totalAmount: number;
+  address: string;
+  handshakePin: string;
+  status: 'locked' | 'in_transit' | 'delivered' | 'completed' | 'disputed';
+  paymentGateway: 'esewa' | 'khalti' | 'wallet';
+  createdAt: string;
 }
 
 interface MarketplaceContextType {
-  walletBalance: number;
-  inEscrowBalance: number;
-  favorites: string[]; // product IDs
-  toggleFavorite: (productId: string) => void;
-  isFavorite: (productId: string) => boolean;
-  loadWallet: (amount: number, method: string) => void;
-  deductForEscrow: (amount: number) => boolean;
-  releaseEscrowToSeller: (amount: number) => void;
-  toasts: ToastMessage[];
-  showToast: (title: string, description?: string, type?: ToastMessage['type']) => void;
-  removeToast: (id: string) => void;
+  favorites: string[];
+  toggleFavorite: (id: string) => void;
+  isFavorite: (id: string) => boolean;
   isSearchOpen: boolean;
   setIsSearchOpen: (open: boolean) => void;
+  toasts: ToastItem[];
+  showToast: (title: string, message: string, type?: 'success' | 'error' | 'warning' | 'info') => void;
+  removeToast: (id: string) => void;
+  orders: EscrowOrder[];
+  createEscrowOrder: (order: Omit<EscrowOrder, 'id' | 'createdAt' | 'status' | 'handshakePin'>) => EscrowOrder;
+  verifyHandshakePin: (orderId: string, pin: string) => boolean;
+  getOrderById: (orderId: string) => EscrowOrder | undefined;
 }
 
 const MarketplaceContext = createContext<MarketplaceContextType | undefined>(undefined);
 
 export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // 1. Wallet State
-  const [walletBalance, setWalletBalance] = useState<number>(() => {
-    const saved = localStorage.getItem('kh_wallet_balance');
-    return saved ? Number(saved) : 65000;
-  });
-
-  const [inEscrowBalance, setInEscrowBalance] = useState<number>(() => {
-    const saved = localStorage.getItem('kh_escrow_balance');
-    return saved ? Number(saved) : 46000;
-  });
-
-  // 2. Favorites State
   const [favorites, setFavorites] = useState<string[]>(() => {
     const saved = localStorage.getItem('kh_favorites');
-    return saved ? JSON.parse(saved) : ['1', '5', '7'];
+    return saved ? JSON.parse(saved) : ['1', '2'];
   });
-
-  // 3. Search Modal & Toast state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-  useEffect(() => {
-    localStorage.setItem('kh_wallet_balance', walletBalance.toString());
-  }, [walletBalance]);
-
-  useEffect(() => {
-    localStorage.setItem('kh_escrow_balance', inEscrowBalance.toString());
-  }, [inEscrowBalance]);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [orders, setOrders] = useState<EscrowOrder[]>(() => {
+    const saved = localStorage.getItem('kh_orders');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'KH-8941',
+        productId: '1',
+        productTitle: 'iPhone 13 128GB Midnight Black',
+        productPrice: 48000,
+        productImage: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=400&q=80',
+        sellerName: 'Samir Simkhada',
+        buyerName: 'Shruti Maharjan',
+        deliveryMethod: 'self_pickup',
+        deliveryFee: 0,
+        totalAmount: 48000,
+        address: 'New Baneshwor, Kathmandu',
+        handshakePin: '4829',
+        status: 'locked',
+        paymentGateway: 'esewa',
+        createdAt: 'Today, 2:15 PM'
+      }
+    ];
+  });
 
   useEffect(() => {
     localStorage.setItem('kh_favorites', JSON.stringify(favorites));
   }, [favorites]);
 
-  const showToast = (title: string, description?: string, type: ToastMessage['type'] = 'success') => {
-    const id = `toast-${Date.now()}`;
-    setToasts((prev) => [...prev, { id, title, description, type }]);
-    setTimeout(() => {
-      removeToast(id);
-    }, 4000);
+  useEffect(() => {
+    localStorage.setItem('kh_orders', JSON.stringify(orders));
+  }, [orders]);
+
+  const toggleFavorite = (id: string) => {
+    setFavorites((prev) => {
+      const exists = prev.includes(id);
+      const next = exists ? prev.filter((item) => item !== id) : [...prev, id];
+      showToast(
+        exists ? 'Removed from Wishlist' : 'Saved to Wishlist ❤️',
+        exists ? 'Item removed from your favorites.' : 'You can find it anytime in saved items.',
+        'info'
+      );
+      return next;
+    });
+  };
+
+  const isFavorite = (id: string) => favorites.includes(id);
+
+  const showToast = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => removeToast(id), 4000);
   };
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const toggleFavorite = (productId: string) => {
-    setFavorites((prev) => {
-      const exists = prev.includes(productId);
-      const updated = exists ? prev.filter((id) => id !== productId) : [...prev, productId];
-      showToast(
-        exists ? 'Removed from favorites' : 'Saved to favorites ❤️',
-        exists ? 'Item removed from your wishlist' : 'You can view this anytime in your Saved hub',
-        exists ? 'info' : 'success'
+  const createEscrowOrder = (orderData: Omit<EscrowOrder, 'id' | 'createdAt' | 'status' | 'handshakePin'>) => {
+    const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+    const newOrder: EscrowOrder = {
+      ...orderData,
+      id: `KH-${Math.floor(1000 + Math.random() * 9000)}`,
+      handshakePin: randomPin,
+      status: 'locked',
+      createdAt: 'Just now'
+    };
+    setOrders((prev) => [newOrder, ...prev]);
+    return newOrder;
+  };
+
+  const verifyHandshakePin = (orderId: string, inputPin: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return false;
+    if (order.handshakePin === inputPin.trim()) {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: 'completed' as const } : o))
       );
-      return updated;
-    });
-  };
-
-  const isFavorite = (productId: string) => favorites.includes(productId);
-
-  const loadWallet = (amount: number, method: string) => {
-    setWalletBalance((prev) => prev + amount);
-    showToast(`Rs. ${amount.toLocaleString()} loaded!`, `Funds credited via ${method.toUpperCase()}`, 'success');
-  };
-
-  const deductForEscrow = (amount: number): boolean => {
-    if (walletBalance < amount) {
-      showToast('Insufficient wallet balance', 'Please load your wallet via eSewa or Khalti', 'error');
-      return false;
+      showToast('Handshake Verified! 🤝', 'Escrow funds have been successfully released to the seller.', 'success');
+      return true;
     }
-    setWalletBalance((prev) => prev - amount);
-    setInEscrowBalance((prev) => prev + amount);
-    showToast('Payment locked in Escrow 🔒', `Rs. ${amount.toLocaleString()} held safely until inspection`, 'success');
-    return true;
+    showToast('Invalid PIN', 'The 4-digit Handshake OTP provided does not match.', 'error');
+    return false;
   };
 
-  const releaseEscrowToSeller = (amount: number) => {
-    setInEscrowBalance((prev) => Math.max(0, prev - amount));
-    showToast('Funds released to seller! 🎉', `Rs. ${amount.toLocaleString()} transferred successfully`, 'success');
+  const getOrderById = (orderId: string) => {
+    return orders.find((o) => o.id === orderId);
   };
 
   return (
     <MarketplaceContext.Provider
       value={{
-        walletBalance,
-        inEscrowBalance,
         favorites,
         toggleFavorite,
         isFavorite,
-        loadWallet,
-        deductForEscrow,
-        releaseEscrowToSeller,
+        isSearchOpen,
+        setIsSearchOpen,
         toasts,
         showToast,
         removeToast,
-        isSearchOpen,
-        setIsSearchOpen,
+        orders,
+        createEscrowOrder,
+        verifyHandshakePin,
+        getOrderById
       }}
     >
       {children}
